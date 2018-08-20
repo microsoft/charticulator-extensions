@@ -23,6 +23,12 @@ function randomHEX32() {
     return s;
 }
 
+function getText(url) {
+    return fetch(url, {
+        credentials: 'include'
+    }).then((resp) => resp.text());
+}
+
 class PowerBIVisualGenerator {
     constructor(template, containerScriptURL) {
         this.template = template;
@@ -153,55 +159,57 @@ class PowerBIVisualGenerator {
         };
         let visual = resources.visual.replace(/\'\<\%\= *([0-9a-zA-Z\_]+) *\%\>\'/g, (x, a) => JSON.stringify(jsConfig[a]));
 
-        let pbiviz_json = {
-            visual: visual_json,
-            apiVersion: "1.6.0",
-            author: config.author,
-            assets: {
-                icon: "assets/icon.png"
-            },
-            externalJS: [],
-            style: "style/visual.less",
-            capabilities: capabilities,
-            stringResources: [],
-            content: {
-                js: [
-                    resources.libraries,
-                    resources.container,
-                    visual
-                ].join("\n"),
-                css: "",
-                iconBase64: resources.icon
-            }
-        }
-
-        let package_json = {
-            version: config.version,
-            author: config.author,
-            resources: [
-                {
-                    resourceId: "rId0",
-                    sourceType: 5,
-                    file: "resources/" + config.guid + ".pbiviz.json"
-                }
-            ],
-            visual: visual_json,
-            metadata: {
-                pbivizjson: {
-                    resourceId: "rId0"
+        return getText(this.containerScriptURL).then((containerScript) => {
+            let pbiviz_json = {
+                visual: visual_json,
+                apiVersion: "1.6.0",
+                author: config.author,
+                assets: {
+                    icon: "assets/icon.png"
+                },
+                externalJS: [],
+                style: "style/visual.less",
+                capabilities: capabilities,
+                stringResources: [],
+                content: {
+                    js: [
+                        resources.libraries,
+                        containerScript,
+                        visual
+                    ].join("\n"),
+                    css: "",
+                    iconBase64: resources.icon
                 }
             }
-        }
-
-        let zip = new JSZip();
-        zip.file("package.json", JSON.stringify(package_json));
-        let fresources = zip.folder("resources");
-        fresources.file(config.guid + ".pbiviz.json", JSON.stringify(pbiviz_json));
-
-        return zip.generateAsync({
-            type: "base64",
-            compression: "DEFLATE"
-        });
+    
+            let package_json = {
+                version: config.version,
+                author: config.author,
+                resources: [
+                    {
+                        resourceId: "rId0",
+                        sourceType: 5,
+                        file: "resources/" + config.guid + ".pbiviz.json"
+                    }
+                ],
+                visual: visual_json,
+                metadata: {
+                    pbivizjson: {
+                        resourceId: "rId0"
+                    }
+                }
+            }
+    
+            let zip = new JSZip();
+            zip.file("package.json", JSON.stringify(package_json));
+            let fresources = zip.folder("resources");
+            fresources.file(config.guid + ".pbiviz.json", JSON.stringify(pbiviz_json));
+    
+            return zip.generateAsync({
+                type: "base64",
+                compression: "DEFLATE"
+            });
+        })
     }
 }
 
@@ -216,7 +224,7 @@ class PowerBIVisualBuilder {
     }
 
     deactivate() {
-        this.context.getApplication().mainStore.unregisterExportTemplateTarget("PowerBI Custom Visual");
+        this.context.getApplication().unregisterExportTemplateTarget("PowerBI Custom Visual");
     }
 }
 

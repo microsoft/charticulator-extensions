@@ -8,5 +8,16 @@ module.exports = {
         // Export the app as a global variable "Charticulator"
         libraryTarget: "var",
         library: "CharticulatorPowerBIVisualBuilder"
-    }
+    },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                loader: 'babel-loader',
+                query: {
+                    presets: ['es2015']
+                }
+            }
+        ]
+    },
 };
