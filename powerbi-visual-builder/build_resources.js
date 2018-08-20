@@ -6,7 +6,7 @@ let enableBabel = false;
 let resources = {
     icon: "data:image/png;base64," + fs.readFileSync("assets/icon.png", "base64"),
     libraries: "",
-    visual: fs.readFileSync("code/visual.js", "utf-8")
+    visual: fs.readFileSync("template_code/visual.js", "utf-8")
 };
 
 if (enableBabel) {
