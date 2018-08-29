@@ -186,21 +186,19 @@
                             this.chartTemplate.assignTable(table.name, "default");
                         }
                         this.chartInstance = this.chartTemplate.instantiate(dataset);
-                        if (this.chartInstance.store) {
-                            this.chartInstance.store.addListener("selection", () => {
-                                const selection = this.chartInstance.store.currentSelection;
-                                if (selection !== undefined) {
-                                    const categoryColumn = options.dataViews[0].categorical.categories[0];
-                                    const toSelect =
-                                        this.host.createSelectionIdBuilder()
-                                            .withCategory(categoryColumn, selection.dataIndex)
-                                            .createSelectionId();
-                                    this.selectionManager.select(toSelect);
-                                } else {
-                                    this.selectionManager.clear();
-                                }
-                            });
-                        }
+                        this.chartInstance.addListener("selection", () => {
+                            const selection = this.chartInstance.currentSelection;
+                            if (selection !== undefined) {
+                                const categoryColumn = options.dataViews[0].categorical.categories[0];
+                                const toSelect =
+                                    this.host.createSelectionIdBuilder()
+                                        .withCategory(categoryColumn, selection.dataIndex)
+                                        .createSelectionId();
+                                this.selectionManager.select(toSelect);
+                            } else {
+                                this.selectionManager.clear();
+                            }
+                        });
                     }
 
                     if (this.chartInstance) {
