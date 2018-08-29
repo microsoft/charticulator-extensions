@@ -38,10 +38,12 @@
     class CharticulatorPowerBIVisual {
         constructor(options) {
             try {
+                this.selectionManager = options.host.createSelectionManager();
                 this.template = '<%= templateData %>';
-                this.canvas = document.createElement("canvas");
+                this.containerElement = document.createElement("div");
+                this.host = options.host;
                 this.properties = {};
-                options.element.appendChild(this.canvas);
+                options.element.appendChild(this.containerElement);
                 this.chartTemplate = new CharticulatorContainer.ChartTemplate(this.template);
                 this.chartInstance = null;
                 for (let id in this.template.properties) {
@@ -62,13 +64,8 @@
         }
 
         resize(width, height) {
-            this.canvas.style.width = width + "px";
-            this.canvas.style.height = height + "px";
-            let pr = this.getPixelRatio();
-            this.canvas.width = Math.ceil(width * pr);
-            this.canvas.height = Math.ceil(height * pr);
-            let ctx = this.canvas.getContext("2d");
-            ctx.setTransform(pr, 0, 0, pr, 0, 0);
+            this.containerElement.style.width = width + "px";
+            this.containerElement.style.height = height + "px";
         }
 
         /** Get a Charticulator dataset from the options */
@@ -155,11 +152,6 @@
             return defaultProperties;
         }
 
-        clearCanvas() {
-            let ctx = this.canvas.getContext("2d");
-            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-
         update(options) {
             runAfterInitialized(() => this.updateRun(options));
         }
@@ -167,17 +159,14 @@
         updateRun(options) {
             try {
                 this.resize(options.viewport.width, options.viewport.height);
-                this.clearCanvas();
-                let ctx = this.canvas.getContext("2d");
 
                 let dataset = this.getDataset(options);
                 this.properties = this.getProperties(options);
 
                 if (dataset == null) {
-                    ctx.fillStyle = "black";
-                    ctx.font = "24px Arial";
-                    ctx.textAlign = "left";
-                    ctx.fillText("Dataset incomplete. Please specify all data fields.", 20, 20);
+                    this.containerElement.innerHTML = `
+                        <h2>Dataset incomplete. Please specify all data fields.</h2>
+                    `;
                     this.currentDatasetJSON = null;
                     this.chartInstance = null;
                 } else {
@@ -186,7 +175,9 @@
                         this.chartInstance = null;
                     }
 
+                    this.currentDatasetJSON = datasetJSON;
                     if (!this.chartInstance) {
+                        this.containerElement.innerHTML = '';
                         this.chartTemplate.reset();
                         for (let slot of this.template.dataSlots) {
                             this.chartTemplate.assignSlot(slot.name, slot.powerBIName);
@@ -195,6 +186,21 @@
                             this.chartTemplate.assignTable(table.name, "default");
                         }
                         this.chartInstance = this.chartTemplate.instantiate(dataset);
+                        if (this.chartInstance.store) {
+                            this.chartInstance.store.addListener("selection", () => {
+                                const selection = this.chartInstance.store.currentSelection;
+                                if (selection !== undefined) {
+                                    const categoryColumn = options.dataViews[0].categorical.categories[0];
+                                    const toSelect =
+                                        this.host.createSelectionIdBuilder()
+                                            .withCategory(categoryColumn, selection.dataIndex)
+                                            .createSelectionId();
+                                    this.selectionManager.select(toSelect);
+                                } else {
+                                    this.selectionManager.clear();
+                                }
+                            });
+                        }
                     }
 
                     if (this.chartInstance) {
@@ -222,7 +228,7 @@
 
                         this.chartInstance.resize(options.viewport.width, options.viewport.height);
                         this.chartInstance.update();
-                        this.chartInstance.render(ctx);
+                        this.chartInstance.render(this.containerElement);
                     }
                 }
             } catch (e) {
