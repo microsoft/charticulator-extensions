@@ -1,3 +1,8 @@
+# Charticulator Extensions
+
+This repository contains a collection of charticulator extensions.
+
+* [PowerBI Visual Builder](powerbi-visual-builder) - An extension that adds PowerBI visual export functionality to charticulator.
 
 # Contributing
 
