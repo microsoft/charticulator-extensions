@@ -5,7 +5,7 @@ This extension adds the "Export as Power BI Custom Visual" functionality.
 
 ## How it Works
 
-Charticulator provides a `container.bundle.min.js` that allows us to import a chart template and feed data into it to create visualizations. This extension works by producing a Power BI compatible `.pbiviz` file that bundles the `container.bundle.min.js` and some bridging code (see `template_code/visual.js`).
+Charticulator provides a `container.bundle.min.js` that allows us to import a chart template and feed data into it to create visualizations. This extension works by producing a Power BI compatible `.pbiviz` file that bundles the `container.bundle.min.js` and some bridging code (see `src_visual/visual.js`).
 
 ## Requirements
 * Node 8+: https://nodejs.org
