@@ -8,16 +8,5 @@ module.exports = {
         // Export the app as a global variable "CharticulatorPowerBIVisualBuilder"
         libraryTarget: "umd",
         library: "CharticulatorPowerBIVisualBuilder"
-    },
-    module: {
-        rules: [
-            {
-                test: /\.js$/,
-                loader: 'babel-loader',
-                query: {
-                    presets: ['es2015']
-                }
-            }
-        ]
-    },
+    }
 };

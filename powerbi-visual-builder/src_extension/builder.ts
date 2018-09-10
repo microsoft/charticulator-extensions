@@ -18,15 +18,28 @@
 /// <reference path="../api/app.bundle.d.ts" />
 
 import * as JSZip from "jszip";
+
 import * as Charticulator from "Charticulator";
 import { ExportTemplateTarget } from "Charticulator/app/template";
+import { Specification } from "Charticulator/core";
 
-import { SchemaCapabilities } from "../api/v2.1.0/schema.capabilities";
+import {
+  SchemaCapabilities,
+  DataRole
+} from "../api/v2.1.0/schema.capabilities";
 
 interface Resources {
   icon: string;
   libraries: string;
   visual: string;
+}
+
+interface PowerBIColumn extends Specification.Template.Column {
+  powerBIName: string;
+}
+
+interface PowerBIProperty extends Specification.Template.Property {
+  powerBIName: string;
 }
 
 const resources: Resources = require("./resources.json");
@@ -50,7 +63,7 @@ function getText(url: string) {
 
 class PowerBIVisualGenerator implements ExportTemplateTarget {
   constructor(
-    public template: Charticulator.Core.Specification.Template.ChartTemplate,
+    public template: Specification.Template.ChartTemplate,
     public containerScriptURL: string
   ) {}
 
@@ -112,41 +125,38 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       supportUrl: "",
       gitHubUrl: ""
     };
-    return "";
 
-    // We assume there's only one table
+    const dataViewMappingsConditions: { [name: string]: any } = {};
+    const objectProperties: { [name: string]: any } = {};
 
-    // for (let column of template.tables[0].columns) {
-    //   // Make sure we have a display name for each slot
-    //   slot.powerBIName = slot.name.replace(/[^0-9a-zA-Z\_]/g, "");
-    //   if (!slot.displayName) {
-    //     slot.displayName = slot.powerBIName;
-    //   }
-    //   console.log("Data Slot: " + slot.displayName, slot.kind);
-    // }
+    // TODO: for now, we assume there's only one table
+    const columns = template.tables[0].columns as PowerBIColumn[];
 
-    const dataViewMappingsConditions = {};
-    const objectProperties = {};
+    for (const column of columns) {
+      // Refine column names
+      column.powerBIName = column.name.replace(/[^0-9a-zA-Z\_]/g, "_");
+      dataViewMappingsConditions[column.powerBIName] = { max: 1 };
+    }
 
-    // for (let slot of template.dataSlots) {
-    //   dataViewMappingsConditions[slot.powerBIName] = { max: 1 };
-    // }
-
-    // for (let id in template.properties) {
-    //   if (!template.properties.hasOwnProperty(id)) continue;
-    //   for (let p of template.properties[id]) {
-    //     let type = { text: true };
-    //     switch (p.type) {
-    //       case "number":
-    //         type = { numeric: true };
-    //         break;
-    //     }
-    //     objectProperties[p.name] = {
-    //       displayName: p.displayName || p.name,
-    //       type: type
-    //     };
-    //   }
-    // }
+    // Populate properties
+    for (const property of template.properties as PowerBIProperty[]) {
+      property.powerBIName = (property.objectID + property.displayName).replace(
+        /[^0-9a-zA-Z\_]/g,
+        "_"
+      );
+      let type: any = { text: true };
+      switch (property.type) {
+        case "number":
+          {
+            type = { numeric: true };
+          }
+          break;
+      }
+      objectProperties[property.powerBIName] = {
+        displayName: property.displayName,
+        type
+      };
+    }
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
@@ -154,14 +164,14 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           displayName: "Granularity (Level of Detail)",
           name: "category",
           kind: "Grouping"
-        }
-        // ...template.dataSlots.map(slot => {
-        //   return {
-        //     displayName: slot.displayName,
-        //     name: slot.powerBIName,
-        //     kind: "Measure"
-        //   };
-        // })
+        },
+        ...columns.map(column => {
+          return {
+            displayName: column.displayName,
+            name: column.powerBIName,
+            kind: "Measure"
+          } as DataRole;
+        })
       ],
       dataViewMappings: [
         {
@@ -173,12 +183,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
               }
             },
             values: {
-              select: []
-              // select: template.dataSlots.map(slot => {
-              //   return {
-              //     bind: { to: slot.powerBIName }
-              //   };
-              // })
+              select: columns.map(column => {
+                return {
+                  bind: { to: column.powerBIName }
+                };
+              })
             }
           }
         }
@@ -188,7 +197,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           displayName: "Charticulator",
           properties: objectProperties
         }
-      }
+      },
+      // Declare that the visual supports highlight.
+      // Power BI will give us a set of highlight values instead of filtering the data.
+      supportsHighlight: true
     };
 
     const jsConfig: { [name: string]: any } = {
@@ -196,11 +208,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       pluginName: config.guid,
       visualDisplayName: config.displayName,
       visualVersion: config.version,
-      apiVersion: "1.6.0",
+      apiVersion: "2.1.0",
       templateData: template
     };
     const visual = resources.visual.replace(
-      /\'\<\%\= *([0-9a-zA-Z\_]+) *\%\>\'/g,
+      /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
       (x, a) => JSON.stringify(jsConfig[a])
     );
 
@@ -265,7 +277,7 @@ class PowerBIVisualBuilder {
       .getApplication()
       .registerExportTemplateTarget(
         "PowerBI Custom Visual",
-        (template: Charticulator.Core.Specification.Template.ChartTemplate) =>
+        (template: Specification.Template.ChartTemplate) =>
           new PowerBIVisualGenerator(template, this.containerScriptURL)
       );
   }

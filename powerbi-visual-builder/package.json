@@ -10,6 +10,7 @@
     "dev": "node build.js --mode=development",
     "build": "node build.js --mode=production",
     "lint": "tslint 'src*/**/*.{ts,tsx}'",
+    "test": "node build.js --mode=production",
     "prettify": "prettier 'src*/**/*.{ts,tsx}'"
   },
   "lint-staged": {

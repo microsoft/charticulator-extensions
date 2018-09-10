@@ -3,53 +3,105 @@
 
 // TODO: need a tool to generate this automatically
 
-declare module CharticulatorContainer {
+declare namespace CharticulatorContainer {
   function initialize(options: any): Promise<void>;
 
   /** Represents a chart template */
   class ChartTemplate {
     /** Create a chart template */
     constructor(template: Specification.Template.ChartTemplate);
-    getDatasetSchema(): Specification.Template.Table[];
+    public getDatasetSchema(): Specification.Template.Table[];
     /** Reset slot assignments */
-    reset(): void;
+    public reset(): void;
     /** Assign a table */
-    assignTable(tableName: string, table: string): void;
+    public assignTable(tableName: string, table: string): void;
     /** Assign an expression to a data mapping slot */
-    assignColumn(tableName: string, columnName: string, column: string): void;
+    public assignColumn(
+      tableName: string,
+      columnName: string,
+      column: string
+    ): void;
     /** Get variable map for a given table */
-    getVariableMap(table: string): {
+    public getVariableMap(
+      table: string
+    ): {
       [name: string]: string;
     };
-    transformExpression(expr: string, table?: string): string;
-    transformTextExpression(expr: string, table?: string): string;
-    transformGroupBy(groupBy: Specification.Types.GroupBy, table: string): Specification.Types.GroupBy;
-    instantiate(dataset: Dataset.Dataset): ChartTemplateInstance;
-  }
-  class ChartTemplateInstance {
-    readonly chart: Specification.Chart;
-    readonly dataset: Dataset.Dataset;
-    constructor(chart: Specification.Chart, dataset: Dataset.Dataset);
-    getProperties(): void;
-    getProperty(id: string): void;
-    setProperty(id: string, value: any): void;
+    public transformExpression(expr: string, table?: string): string;
+    public transformTextExpression(expr: string, table?: string): string;
+    public transformGroupBy(
+      groupBy: Specification.Types.GroupBy,
+      table: string
+    ): Specification.Types.GroupBy;
+    public instantiate(dataset: Dataset.Dataset): Specification.Chart;
+
+    public static SetChartProperty(
+      chart: Specification.Chart,
+      objectID: string,
+      property: Specification.Template.PropertyField,
+      value: Specification.AttributeValue
+    );
+    public static GetChartProperty(
+      chart: Specification.Chart,
+      objectID: string,
+      property: Specification.Template.PropertyField
+    ): Specification.AttributeValue;
+    public static SetChartAttributeMapping(
+      chart: Specification.Chart,
+      objectID: string,
+      attribute: string,
+      value: Specification.Mapping
+    );
+    public static GetChartAttributeMapping(
+      chart: Specification.Chart,
+      objectID: string,
+      attribute: string
+    ): Specification.Mapping;
   }
   class ChartContainer {
-    readonly chart: Specification.Chart;
-    readonly dataset: Dataset.Dataset;
+    public readonly chart: Specification.Chart;
+    public readonly dataset: Dataset.Dataset;
     constructor(chart: Specification.Chart, dataset: Dataset.Dataset);
     /** Resize the chart */
-    resize(width: number, height: number): void;
+    public resize(width: number, height: number): void;
     /** Listen to selection change */
-    addSelectionListener(listener: (table: string, rowIndices: number[]) => void): EventSubscription;
+    public addSelectionListener(
+      listener: (table: string, rowIndices: number[]) => void
+    ): EventSubscription;
     /** Set data selection and update the chart */
-    setSelection(table: string, rowIndices: number[]): void;
+    public setSelection(table: string, rowIndices: number[]): void;
     /** Clear data selection and update the chart */
-    clearSelection(): void;
+    public clearSelection(): void;
     /** Mount the chart to a container element */
-    mount(container: string | Element, width?: number, height?: number): void;
+    public mount(
+      container: string | Element,
+      width?: number,
+      height?: number
+    ): void;
     /** Unmounr the chart */
-    unmount(): void;
+    public unmount(): void;
+    /** Set property */
+    public setProperty(
+      objectID: string,
+      property: Specification.Template.PropertyField,
+      value: Specification.AttributeValue
+    );
+    /** Get property */
+    public getProperty(
+      objectID: string,
+      property: Specification.Template.PropertyField
+    ): Specification.AttributeValue;
+    /** Set attribute mapping */
+    public setAttributeMapping(
+      objectID: string,
+      attribute: string,
+      value: Specification.Mapping
+    );
+    /** Get attribute mapping */
+    public getAttributeMapping(
+      objectID: string,
+      attribute: string
+    ): Specification.Mapping;
   }
 
   interface Color {
@@ -67,7 +119,7 @@ declare module CharticulatorContainer {
     remove(): void;
   }
 
-  module Dataset {
+  namespace Dataset {
     type ValueType = string | number | Date | boolean;
     interface Dataset {
       /** Name of the dataset */
@@ -110,7 +162,7 @@ declare module CharticulatorContainer {
     }
   }
 
-  module Specification {
+  namespace Specification {
     /** Objects with an unique ID */
     interface Identifiable {
       /** Unique ID */
@@ -125,10 +177,16 @@ declare module CharticulatorContainer {
     }
     type Expression = string;
     /** Attribute value types */
-    type AttributeValue = number | string | boolean | Color | Point | AttributeList | AttributeMap;
+    type AttributeValue =
+      | number
+      | string
+      | boolean
+      | Color
+      | Point
+      | AttributeList
+      | AttributeMap;
     /** Attribute value list */
-    interface AttributeList extends ArrayLike<AttributeValue> {
-    }
+    interface AttributeList extends ArrayLike<AttributeValue> {}
     /** Attribute value map */
     interface AttributeMap {
       [name: string]: AttributeValue;
@@ -197,8 +255,7 @@ declare module CharticulatorContainer {
       mappings: Mappings;
     }
     /** Element: a single graphical mark, such as rect, circle, wedge; an element is driven by a single data row */
-    interface Element extends Object {
-    }
+    interface Element extends Object {}
     /** Glyph: a compound of elements, with constraints between them; a glyph is driven by a single data row */
     interface Glyph extends Object {
       /** The data table this mark correspond to */
@@ -227,14 +284,11 @@ declare module CharticulatorContainer {
       order?: Types.SortBy;
     }
     /** Guide */
-    interface Guide extends Object {
-    }
+    interface Guide extends Object {}
     /** Guide Coordinator */
-    interface GuideCoordinator extends Object {
-    }
+    interface GuideCoordinator extends Object {}
     /** Links */
-    interface Links extends Object {
-    }
+    interface Links extends Object {}
     /** ChartElement is a PlotSegment or a Guide */
     type ChartElement = PlotSegment | Guide | GuideCoordinator;
     /** Resource item */
@@ -264,17 +318,13 @@ declare module CharticulatorContainer {
       attributes: AttributeMap;
     }
     /** Element state */
-    interface MarkState extends ObjectState {
-    }
+    interface MarkState extends ObjectState {}
     /** Scale state */
-    interface ScaleState extends ObjectState {
-    }
+    interface ScaleState extends ObjectState {}
     /** Glyph state */
     interface GlyphState extends ObjectState {
       marks: MarkState[];
-      /**
-          * Should this specific glyph instance be emphasized
-          */
+      /** Should this specific glyph instance be emphasized */
       emphasized?: boolean;
     }
     /** PlotSegment state */
@@ -283,8 +333,7 @@ declare module CharticulatorContainer {
       dataRowIndices: number[][];
     }
     /** Guide state */
-    interface GuideState extends ObjectState {
-    }
+    interface GuideState extends ObjectState {}
     /** Chart element state, one of PlotSegmentState or GuideState */
     type ChartElementState = PlotSegmentState | GuideState;
     /** Chart state */
@@ -295,18 +344,20 @@ declare module CharticulatorContainer {
       scales: ScaleState[];
     }
     /**
-        * Represents the type of method to use when emphasizing an element
-        */
+     * Represents the type of method to use when emphasizing an element
+     */
     enum EmphasisMethod {
       Saturation = "saturatation",
-      Outline = "outline",
+      Outline = "outline"
     }
 
-    module Template {
-      type PropertyField = string | {
-        property: string;
-        field: any;
-      };
+    namespace Template {
+      type PropertyField =
+        | string
+        | {
+            property: string;
+            field: any;
+          };
       interface ChartTemplate {
         /** The original chart specification */
         specification: Chart;
@@ -373,7 +424,7 @@ declare module CharticulatorContainer {
         property: PropertyField;
       }
     }
-    module Types {
+    namespace Types {
       interface AxisDataBinding extends AttributeMap {
         type: "default" | "numerical" | "categorical";
         visible: boolean;
