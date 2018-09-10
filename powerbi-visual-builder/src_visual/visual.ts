@@ -33,24 +33,29 @@ namespace powerbi.extensibility.visual {
   }
 
   class CharticulatorPowerBIVisual {
-    public selectionManager: ISelectionManager;
-    public template: CharticulatorContainer.Specification.Template.ChartTemplate;
-    public containerElement: HTMLDivElement;
-    public host: IVisualHost;
-    public properties: { [name: string]: any };
-    public chartTemplate: CharticulatorContainer.ChartTemplate;
-    public chartContainer: CharticulatorContainer.ChartContainer;
+    protected host: IVisualHost;
+    protected selectionManager: ISelectionManager;
+
+    protected template: CharticulatorContainer.Specification.Template.ChartTemplate;
+
+    protected container: HTMLElement;
+    protected divChart: HTMLDivElement;
     protected currentDatasetJSON: string;
+
+    protected properties: { [name: string]: any };
+    protected chartTemplate: CharticulatorContainer.ChartTemplate;
+    protected chartContainer: CharticulatorContainer.ChartContainer;
 
     constructor(options: VisualConstructorOptions) {
       try {
         this.selectionManager = options.host.createSelectionManager();
         this.template = "<%= templateData %>" as any;
-        this.containerElement = document.createElement("div");
-        this.containerElement.style.cursor = "default";
-        this.containerElement.style.pointerEvents = "none";
+        this.container = options.element;
+        this.divChart = document.createElement("div");
+        this.divChart.style.cursor = "default";
+        this.divChart.style.pointerEvents = "none";
         this.host = options.host;
-        options.element.appendChild(this.containerElement);
+        options.element.appendChild(this.divChart);
         this.chartTemplate = new CharticulatorContainer.ChartTemplate(
           this.template
         );
@@ -79,12 +84,12 @@ namespace powerbi.extensibility.visual {
     }
 
     public resize(width: number, height: number) {
-      this.containerElement.style.width = width + "px";
-      this.containerElement.style.height = height + "px";
+      this.divChart.style.width = width + "px";
+      this.divChart.style.height = height + "px";
     }
 
     /** Get a Charticulator dataset from the options */
-    public getDataset(
+    protected getDataset(
       options: VisualUpdateOptions
     ): {
       dataset: CharticulatorContainer.Dataset.Dataset;
@@ -184,7 +189,7 @@ namespace powerbi.extensibility.visual {
       return { dataset, rowInfo };
     }
 
-    public getProperties(options: VisualUpdateOptions) {
+    protected getProperties(options: VisualUpdateOptions) {
       const defaultProperties: { [name: string]: any } = {};
       for (const p of this.template.properties as PowerBIProperty[]) {
         defaultProperties[p.powerBIName] = p.default;
@@ -213,7 +218,7 @@ namespace powerbi.extensibility.visual {
       return defaultProperties;
     }
 
-    public unmountContainer() {
+    protected unmountContainer() {
       if (this.chartContainer != null) {
         this.chartContainer.unmount();
         this.chartContainer = null;
@@ -225,14 +230,14 @@ namespace powerbi.extensibility.visual {
       runAfterInitialized(() => this.updateRun(options));
     }
 
-    public updateRun(options: VisualUpdateOptions) {
+    protected updateRun(options: VisualUpdateOptions) {
       try {
         this.resize(options.viewport.width, options.viewport.height);
 
         const getDatasetResult = this.getDataset(options);
         if (getDatasetResult == null) {
           // If dataset is null, show a warning message
-          this.containerElement.innerHTML = `
+          this.divChart.innerHTML = `
                 <h2>Dataset incomplete. Please specify all data fields.</h2>
             `;
           this.currentDatasetJSON = null;
@@ -248,7 +253,7 @@ namespace powerbi.extensibility.visual {
 
           // Recreate chartContainer if not exist
           if (!this.chartContainer) {
-            this.containerElement.innerHTML = "";
+            this.divChart.innerHTML = "";
             this.chartTemplate.reset();
 
             const columns = this.template.tables[0].columns as PowerBIColumn[];
@@ -312,16 +317,22 @@ namespace powerbi.extensibility.visual {
                 rowIndices != null &&
                 rowIndices.length > 0
               ) {
-                const ids = rowIndices
-                  .map(i => selectionIDs[i])
-                  .filter(x => x != null);
-                this.selectionManager.select(ids);
-                this.chartContainer.setSelection(table, rowIndices);
+                // Power BI's toggle behavior
+                if (this.selectionManager.hasSelection()) {
+                  this.selectionManager.clear();
+                  this.chartContainer.clearSelection();
+                } else {
+                  const ids = rowIndices
+                    .map(i => selectionIDs[i])
+                    .filter(x => x != null);
+                  this.selectionManager.select(ids);
+                  this.chartContainer.setSelection(table, rowIndices);
+                }
               } else {
                 this.selectionManager.clear();
               }
             });
-            this.chartContainer.mount(this.containerElement);
+            this.chartContainer.mount(this.divChart);
           }
 
           if (this.chartContainer) {
