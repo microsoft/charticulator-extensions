@@ -78,7 +78,7 @@ declare namespace CharticulatorContainer {
       width?: number,
       height?: number
     ): void;
-    /** Unmounr the chart */
+    /** Unmount the chart */
     public unmount(): void;
     /** Set property */
     public setProperty(
