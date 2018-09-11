@@ -180,6 +180,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             categories: {
               for: {
                 in: "category"
+              },
+              dataReductionAlgorithm: {
+                top: {
+                  count: 30000 // That's the maximum
+                }
               }
             },
             values: {
