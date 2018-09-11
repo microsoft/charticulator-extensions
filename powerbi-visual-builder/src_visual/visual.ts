@@ -32,6 +32,12 @@ namespace powerbi.extensibility.visual {
     powerBIName: string;
   }
 
+  function arrayEquals(a1: number[], a2: number[]) {
+    const s1 = new Set(a1);
+    const s2 = new Set(a2);
+    return a1.every(i => s2.has(i)) && a2.every(i => s1.has(i));
+  }
+
   class CharticulatorPowerBIVisual {
     protected host: IVisualHost;
     protected selectionManager: ISelectionManager;
@@ -92,12 +98,12 @@ namespace powerbi.extensibility.visual {
     protected getDataset(
       options: VisualUpdateOptions
     ): {
-      dataset: CharticulatorContainer.Dataset.Dataset;
-      rowInfo: Map<
+        dataset: CharticulatorContainer.Dataset.Dataset;
+        rowInfo: Map<
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number }
-      >;
-    } {
+        >;
+      } {
       if (
         !options.dataViews ||
         !options.dataViews[0] ||
@@ -134,7 +140,7 @@ namespace powerbi.extensibility.visual {
       const rowInfo = new Map<
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number }
-      >();
+        >();
       const dataset: CharticulatorContainer.Dataset.Dataset = {
         name: "Dataset",
         tables: [
@@ -297,6 +303,7 @@ namespace powerbi.extensibility.visual {
 
             // Make selection ids:
             const selectionIDs = [];
+            const selectionID2RowIndex = new WeakMap<ISelectionId, number>();
             dataset.tables[0].rows.forEach((row, i) => {
               const selectionID = this.host
                 .createSelectionIdBuilder()
@@ -306,6 +313,7 @@ namespace powerbi.extensibility.visual {
                 )
                 .createSelectionId();
               selectionIDs.push(selectionID);
+              selectionID2RowIndex.set(selectionID, i);
             });
             this.chartContainer = new CharticulatorContainer.ChartContainer(
               chart,
@@ -318,7 +326,14 @@ namespace powerbi.extensibility.visual {
                 rowIndices.length > 0
               ) {
                 // Power BI's toggle behavior
+                let alreadySelected = false;
                 if (this.selectionManager.hasSelection()) {
+                  const ids = this.selectionManager.getSelectionIds().map(id => selectionID2RowIndex.get(id));
+                  if (arrayEquals(ids, rowIndices)) {
+                    alreadySelected = true;
+                  }
+                }
+                if (alreadySelected) {
                   this.selectionManager.clear();
                   this.chartContainer.clearSelection();
                 } else {
