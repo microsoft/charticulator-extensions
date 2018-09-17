@@ -6,6 +6,18 @@
 declare namespace CharticulatorContainer {
   function initialize(options: any): Promise<void>;
 
+  interface DefaultAttributes {
+    /* Maps between an object id and a set of attributes */
+    [objectId: string]: {
+      [attribute: string]: any;
+    };
+  }
+
+  interface TemplateInstance {
+    chart: Specification.Chart;
+    defaultAttributes: DefaultAttributes;
+  }
+
   /** Represents a chart template */
   class ChartTemplate {
     /** Create a chart template */
@@ -33,7 +45,7 @@ declare namespace CharticulatorContainer {
       groupBy: Specification.Types.GroupBy,
       table: string
     ): Specification.Types.GroupBy;
-    public instantiate(dataset: Dataset.Dataset): Specification.Chart;
+    public instantiate(dataset: Dataset.Dataset): TemplateInstance;
 
     public static SetChartProperty(
       chart: Specification.Chart,
@@ -61,7 +73,7 @@ declare namespace CharticulatorContainer {
   class ChartContainer {
     public readonly chart: Specification.Chart;
     public readonly dataset: Dataset.Dataset;
-    constructor(chart: Specification.Chart, dataset: Dataset.Dataset);
+    constructor(instance: TemplateInstance, dataset: Dataset.Dataset);
     /** Resize the chart */
     public resize(width: number, height: number): void;
     /** Listen to selection change */

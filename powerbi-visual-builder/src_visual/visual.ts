@@ -274,7 +274,9 @@ namespace powerbi.extensibility.visual {
                 column.powerBIName
               );
             }
-            const chart = this.chartTemplate.instantiate(dataset);
+            const instance = this.chartTemplate.instantiate(dataset);
+            const { chart } = instance;
+
             // Apply chart properties
             for (const property of this.template
               .properties as PowerBIProperty[]) {
@@ -316,7 +318,7 @@ namespace powerbi.extensibility.visual {
               selectionID2RowIndex.set(selectionID, i);
             });
             this.chartContainer = new CharticulatorContainer.ChartContainer(
-              chart,
+              instance,
               dataset
             );
             this.chartContainer.addSelectionListener((table, rowIndices) => {
