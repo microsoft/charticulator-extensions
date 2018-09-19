@@ -117,9 +117,6 @@ namespace powerbi.extensibility.visual {
       const categorical = dv.categorical;
       const category = categorical.categories[0];
       const valueColumns = categorical.values;
-      if (!valueColumns) {
-        return null;
-      }
 
       // Match columns
       const columnToValues: {
@@ -131,22 +128,24 @@ namespace powerbi.extensibility.visual {
       const columns = this.template.tables[0].columns as PowerBIColumn[];
       for (const column of columns) {
         let found = false;
-        for (const v of valueColumns) {
-          if (v.source.roles[column.powerBIName]) {
-            columnToValues[column.powerBIName] = {
-              values: CharticulatorContainer.Dataset.convertColumnType(
-                v.values.map(x => (x == null ? null : x.valueOf())),
-                column.type
-              ),
-              highlights: v.values.map((value, i) => {
-                return v.highlights
-                  ? v.highlights[i] != null && value != null
-                    ? v.highlights[i].valueOf() == value.valueOf()
-                    : false
-                  : false;
-              })
-            };
-            found = true;
+        if (valueColumns != null) {
+          for (const v of valueColumns) {
+            if (v.source.roles[column.powerBIName]) {
+              columnToValues[column.powerBIName] = {
+                values: CharticulatorContainer.Dataset.convertColumnType(
+                  v.values.map(x => (x == null ? null : x.valueOf())),
+                  column.type
+                ),
+                highlights: v.values.map((value, i) => {
+                  return v.highlights
+                    ? v.highlights[i] != null && value != null
+                      ? v.highlights[i].valueOf() == value.valueOf()
+                      : false
+                    : false;
+                })
+              };
+              found = true;
+            }
           }
         }
         if (!found) {
