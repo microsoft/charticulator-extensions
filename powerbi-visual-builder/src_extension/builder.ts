@@ -107,7 +107,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       name: properties.visualName,
       displayName: properties.visualName,
       description: properties.description,
-      guid: properties.visualName + randomHEX32(),
+
+      // Add a indicator that this came from Charticulator
+      // also replace any non alphanumeric characters with _, spaces can screw up PBI
+      guid: 'CHARTICULATOR_VISUAL_' + properties.visualName.replace(/[^A-Za-z0-9]+/, "_") + randomHEX32(),
       version: "1.0.0",
       author: {
         name: properties.authorName,
