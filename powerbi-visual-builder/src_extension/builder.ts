@@ -197,6 +197,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           }
         }
       ],
+
+      /* Tell PBI to allow for sorting */
+      sorting: {
+        default: {}
+      },
       objects: {
         chartOptions: {
           displayName: "Charticulator",
