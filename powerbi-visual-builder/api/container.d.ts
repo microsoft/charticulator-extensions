@@ -172,9 +172,36 @@ declare namespace CharticulatorContainer {
       /** Rows in the table */
       rows: Row[];
     }
+
+    function convertColumnType(
+      values: any[],
+      type: Specification.DataType
+    ): Specification.DataValue[];
   }
 
   namespace Specification {
+    enum DataType {
+      /** String data type, stored as string */
+      String = "string",
+      /** Number data type, stored as number */
+      Number = "number",
+      /** Boolean data type, stored as boolean */
+      Boolean = "boolean",
+      /** Date data type, stored as unix timestamps (ms) */
+      Date = "date"
+    }
+    enum AttributeType {
+      Number = "number",
+      Enum = "enum",
+      Text = "text",
+      Boolean = "boolean",
+      FontFamily = "font-family",
+      Color = "color",
+      Image = "image",
+      Point = "point",
+      Object = "object"
+    }
+
     /** Objects with an unique ID */
     interface Identifiable {
       /** Unique ID */
@@ -383,7 +410,7 @@ declare namespace CharticulatorContainer {
       interface Column {
         displayName: string;
         name: string;
-        type: string;
+        type: DataType;
         metadata: Dataset.ColumnMetadata;
       }
       interface Table {
@@ -397,7 +424,7 @@ declare namespace CharticulatorContainer {
           property?: PropertyField;
           attribute?: string;
         };
-        type: string;
+        type: AttributeType;
         default?: string | number | boolean;
       }
       /** Infer values from data */

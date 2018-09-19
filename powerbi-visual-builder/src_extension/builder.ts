@@ -96,8 +96,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     ];
   }
 
-  public getFileExtension() {
-    return "pbiviz";
+  public getFileName(properties: { [name: string]: any }) {
+    if (properties.visualName) {
+      return properties.visualName + ".pbiviz";
+    } else {
+      return "charticulator.pbiviz";
+    }
   }
 
   // Return a Promise<base64>

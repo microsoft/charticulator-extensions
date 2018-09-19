@@ -98,12 +98,12 @@ namespace powerbi.extensibility.visual {
     protected getDataset(
       options: VisualUpdateOptions
     ): {
-        dataset: CharticulatorContainer.Dataset.Dataset;
-        rowInfo: Map<
+      dataset: CharticulatorContainer.Dataset.Dataset;
+      rowInfo: Map<
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number }
-        >;
-      } {
+      >;
+    } {
       if (
         !options.dataViews ||
         !options.dataViews[0] ||
@@ -121,15 +121,31 @@ namespace powerbi.extensibility.visual {
         return null;
       }
 
-      const columnToValues: { [name: string]: DataViewValueColumn } = {};
-
+      // Match columns
+      const columnToValues: {
+        [name: string]: {
+          values: CharticulatorContainer.Specification.DataValue[];
+          highlights: boolean[];
+        };
+      } = {};
       const columns = this.template.tables[0].columns as PowerBIColumn[];
-
       for (const column of columns) {
         let found = false;
         for (const v of valueColumns) {
           if (v.source.roles[column.powerBIName]) {
-            columnToValues[column.powerBIName] = v;
+            columnToValues[column.powerBIName] = {
+              values: CharticulatorContainer.Dataset.convertColumnType(
+                v.values.map(x => (x == null ? null : x.valueOf())),
+                column.type
+              ),
+              highlights: v.values.map((value, i) => {
+                return v.highlights
+                  ? v.highlights[i] != null && value != null
+                    ? v.highlights[i].valueOf() == value.valueOf()
+                    : false
+                  : false;
+              })
+            };
             found = true;
           }
         }
@@ -137,10 +153,11 @@ namespace powerbi.extensibility.visual {
           return null;
         }
       }
+
       const rowInfo = new Map<
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number }
-        >();
+      >();
       const dataset: CharticulatorContainer.Dataset.Dataset = {
         name: "Dataset",
         tables: [
@@ -165,21 +182,9 @@ namespace powerbi.extensibility.visual {
                   if (value == null) {
                     return null;
                   }
-                  obj[column.powerBIName] = value.valueOf();
-                  const highlight =
-                    valueColumn.highlights && // Highlights exists
-                    valueColumn.highlights[i] != null && // Not null
-                    valueColumn.highlights[i].valueOf() == value.valueOf(); // Same value
-                  if (!highlight) {
+                  obj[column.powerBIName] = value;
+                  if (!valueColumn.highlights[i]) {
                     allHighlighted = false;
-                  }
-                  if (
-                    column.metadata &&
-                    column.metadata.kind == "categorical"
-                  ) {
-                    obj[column.powerBIName] = obj[
-                      column.powerBIName
-                    ].toString();
                   }
                 }
                 rowInfo.set(obj, {
@@ -330,7 +335,9 @@ namespace powerbi.extensibility.visual {
                 // Power BI's toggle behavior
                 let alreadySelected = false;
                 if (this.selectionManager.hasSelection()) {
-                  const ids = this.selectionManager.getSelectionIds().map(id => selectionID2RowIndex.get(id));
+                  const ids = this.selectionManager
+                    .getSelectionIds()
+                    .map(id => selectionID2RowIndex.get(id));
                   if (arrayEquals(ids, rowIndices)) {
                     alreadySelected = true;
                   }
