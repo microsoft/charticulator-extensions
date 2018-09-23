@@ -123,7 +123,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
       // Add a indicator that this came from Charticulator
       // also replace any non alphanumeric characters with _, spaces can screw up PBI
-      guid: 'CHARTICULATOR_VISUAL_' + properties.visualName.replace(/[^A-Za-z0-9]+/, "_") + randomHEX32(),
+      guid:
+        "CHARTICULATOR_VISUAL_" +
+        properties.visualName.replace(/[^A-Za-z0-9]+/, "_") +
+        randomHEX32(),
       version: "1.0.0",
       author: {
         name: properties.authorName,
@@ -302,7 +305,7 @@ class PowerBIVisualBuilder {
     context
       .getApplication()
       .registerExportTemplateTarget(
-        "PowerBI Custom Visual",
+        "Power BI Custom Visual",
         (template: Specification.Template.ChartTemplate) =>
           new PowerBIVisualGenerator(template, this.containerScriptURL)
       );
@@ -311,7 +314,7 @@ class PowerBIVisualBuilder {
   public deactivate() {
     this.context
       .getApplication()
-      .unregisterExportTemplateTarget("PowerBI Custom Visual");
+      .unregisterExportTemplateTarget("Power BI Custom Visual");
   }
 }
 
