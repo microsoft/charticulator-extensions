@@ -80,6 +80,14 @@ declare namespace CharticulatorContainer {
     public addSelectionListener(
       listener: (table: string, rowIndices: number[]) => void
     ): EventSubscription;
+    /** Listen to mouse enter event */
+    public addMouseEnterListener(
+      listener: (table: string, rowIndices: number[]) => void
+    ): EventSubscription;
+    /** Listen to mouse leave event */
+    public addMouseLeaveListener(
+      listener: (table: string, rowIndices: number[]) => void
+    ): EventSubscription;
     /** Set data selection and update the chart */
     public setSelection(table: string, rowIndices: number[]): void;
     /** Clear data selection and update the chart */
