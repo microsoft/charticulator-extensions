@@ -52,6 +52,10 @@ namespace powerbi.extensibility.visual {
     protected chartTemplate: CharticulatorContainer.ChartTemplate;
     protected chartContainer: CharticulatorContainer.ChartContainer;
 
+    protected currentX: number;
+    protected currentY: number;
+    protected handleMouseMove: () => void;
+
     constructor(options: VisualConstructorOptions) {
       try {
         this.selectionManager = options.host.createSelectionManager();
@@ -66,24 +70,16 @@ namespace powerbi.extensibility.visual {
           this.template
         );
         this.properties = this.getProperties(null);
-        // Seems this won't be called when using highlight mode
-        // this.selectionManager.registerOnSelectCallback(
-        //   (ids: ISelectionId[]) => {
-        //     const rowIndices: number[] = [];
-        //     for (const id of ids) {
-        //       if (this.selectionID2RowIndex.has(id)) {
-        //         const row = this.selectionID2RowIndex.get(id);
-        //         rowIndices.push(row);
-        //       }
-        //     }
-        //     console.log("OnSelectCallback", rowIndices, ids.length);
-        //     // if (rowIndices.length > 0) {
-        //     //   this.chartContainer.setSelection("default", rowIndices);
-        //     // } else {
-        //     //   this.chartContainer.clearSelection();
-        //     // }
-        //   }
-        // );
+
+        // Handles mouse move events for displaying tooltips.
+        window.addEventListener("mousemove", e => {
+          const bbox = this.container.getBoundingClientRect();
+          this.currentX = e.pageX - bbox.left;
+          this.currentY = e.pageY - bbox.top;
+          if (this.handleMouseMove) {
+            this.handleMouseMove();
+          }
+        });
       } catch (e) {
         console.log(e);
       }
@@ -101,7 +97,7 @@ namespace powerbi.extensibility.visual {
       dataset: CharticulatorContainer.Dataset.Dataset;
       rowInfo: Map<
         CharticulatorContainer.Dataset.Row,
-        { highlight: boolean; index: number }
+        { highlight: boolean; index: number; granularity: string }
       >;
     } {
       if (
@@ -155,7 +151,7 @@ namespace powerbi.extensibility.visual {
 
       const rowInfo = new Map<
         CharticulatorContainer.Dataset.Row,
-        { highlight: boolean; index: number }
+        { highlight: boolean; index: number; granularity: string }
       >();
       const dataset: CharticulatorContainer.Dataset.Dataset = {
         name: "Dataset",
@@ -170,7 +166,7 @@ namespace powerbi.extensibility.visual {
               };
             }),
             rows: category.values
-              .map((_, i) => {
+              .map((categoryValue, i) => {
                 const obj: CharticulatorContainer.Dataset.Row = {
                   _id: "ID" + i.toString()
                 };
@@ -188,7 +184,8 @@ namespace powerbi.extensibility.visual {
                 }
                 rowInfo.set(obj, {
                   highlight: allHighlighted,
-                  index: i
+                  index: i,
+                  granularity: categoryValue.valueOf().toString()
                 });
                 return obj;
               })
@@ -236,8 +233,23 @@ namespace powerbi.extensibility.visual {
     }
 
     public update(options: VisualUpdateOptions) {
-      this.properties = this.getProperties(options);
-      runAfterInitialized(() => this.updateRun(options));
+      if (options.type & (VisualUpdateType.Data | VisualUpdateType.Style)) {
+        // If data or properties changed, re-generate the visual
+        this.properties = this.getProperties(options);
+        runAfterInitialized(() => this.updateRun(options));
+      } else if (
+        options.type &
+        (VisualUpdateType.Resize | VisualUpdateType.ResizeEnd)
+      ) {
+        // If only size changed, just run resize
+        if (this.chartContainer) {
+          this.resize(options.viewport.width, options.viewport.height);
+          this.chartContainer.resize(
+            options.viewport.width,
+            options.viewport.height
+          );
+        }
+      }
     }
 
     protected updateRun(options: VisualUpdateOptions) {
@@ -251,12 +263,14 @@ namespace powerbi.extensibility.visual {
                 <h2>Dataset incomplete. Please specify all data fields.</h2>
             `;
           this.currentDatasetJSON = null;
+          this.handleMouseMove = null;
           this.unmountContainer();
         } else {
           const { dataset } = getDatasetResult;
           // Check if dataset is the same
           const datasetJSON = JSON.stringify(dataset);
           if (datasetJSON != this.currentDatasetJSON) {
+            this.handleMouseMove = null;
             this.unmountContainer();
           }
           this.currentDatasetJSON = datasetJSON;
@@ -308,7 +322,7 @@ namespace powerbi.extensibility.visual {
             }
 
             // Make selection ids:
-            const selectionIDs = [];
+            const selectionIDs: visuals.ISelectionId[] = [];
             const selectionID2RowIndex = new WeakMap<ISelectionId, number>();
             dataset.tables[0].rows.forEach((row, i) => {
               const selectionID = this.host
@@ -355,6 +369,43 @@ namespace powerbi.extensibility.visual {
                 this.selectionManager.clear();
               }
             });
+            if (this.host.tooltipService.enabled()) {
+              const service = this.host.tooltipService;
+
+              this.chartContainer.addMouseEnterListener((table, rowIndices) => {
+                const ids = rowIndices
+                  .map(i => selectionIDs[i])
+                  .filter(x => x != null);
+                const info = {
+                  coordinates: [this.currentX, this.currentY],
+                  isTouchEvent: false,
+                  dataItems: Array.prototype.concat(
+                    ...rowIndices.map(idx => {
+                      const row = dataset.tables[0].rows[idx];
+                      return Object.keys(row)
+                        .filter(x => x != "_id")
+                        .map(key => ({
+                          displayName: key,
+                          header: getDatasetResult.rowInfo.get(row).granularity,
+                          value: row[key].toString()
+                        }));
+                    })
+                  ),
+                  identities: ids
+                };
+                service.show(info);
+                this.handleMouseMove = () => {
+                  service.move({
+                    ...info,
+                    coordinates: [this.currentX, this.currentY]
+                  });
+                };
+              });
+              this.chartContainer.addMouseLeaveListener((table, rowIndices) => {
+                service.hide({ isTouchEvent: false, immediately: false });
+                this.handleMouseMove = null;
+              });
+            }
             this.chartContainer.mount(this.divChart);
           }
 
