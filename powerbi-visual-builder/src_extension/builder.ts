@@ -70,6 +70,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   public getProperties() {
     return [
       {
+        displayName: "Enable Tooltip",
+        name: "enableTooltip",
+        type: "boolean",
+        default: true
+      },
+      {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
@@ -238,7 +244,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualDisplayName: config.displayName,
       visualVersion: config.version,
       apiVersion: "2.1.0",
-      templateData: template
+      templateData: template,
+      enableTooltip: properties.enableTooltip
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
