@@ -182,10 +182,19 @@ namespace powerbi.extensibility.visual {
                     allHighlighted = false;
                   }
                 }
+                
+                const catDate = (categoryValue as Date);
+                let granularity = categoryValue.valueOf().toString();
+
+                // Try to do some extra formatting for dates
+                if (catDate && typeof catDate.toDateString === "function") {
+                  granularity = catDate.toDateString();
+                } 
+
                 rowInfo.set(obj, {
                   highlight: allHighlighted,
                   index: i,
-                  granularity: categoryValue.valueOf().toString()
+                  granularity
                 });
                 return obj;
               })
@@ -384,11 +393,31 @@ namespace powerbi.extensibility.visual {
                       const row = dataset.tables[0].rows[idx];
                       return Object.keys(row)
                         .filter(x => x != "_id")
-                        .map(key => ({
-                          displayName: key,
-                          header: getDatasetResult.rowInfo.get(row).granularity,
-                          value: row[key].toString()
-                        }));
+                        .map(key => {
+                          let value = row[key];
+                          const column = dataset.tables[0].columns.filter(n => n.name === key)[0];
+
+                          // Attempt to format numbers/dates nicely
+                           /** Data type in memory (number, string, Date, boolean, etc) */
+                          if (value !== undefined && value !== null) {
+                            if (column.type === CharticulatorContainer.Specification.DataType.Number) {
+                              value = parseFloat(value + "").toFixed(2);
+                            } else if (column.type === CharticulatorContainer.Specification.DataType.Date) {
+                              const numVal = value as number;
+                              if (typeof numVal.toFixed === "function") {
+                                const parsed = new Date(numVal);
+                                value = parsed.toDateString();
+                              }
+                            }
+                          }
+
+                          const header = getDatasetResult.rowInfo.get(row).granularity;
+                          return ({
+                            displayName: key,
+                            header,
+                            value
+                          })
+                        });
                     })
                   ),
                   identities: ids
