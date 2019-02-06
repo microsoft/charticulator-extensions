@@ -43,6 +43,7 @@ namespace powerbi.extensibility.visual {
     protected selectionManager: ISelectionManager;
 
     protected template: CharticulatorContainer.Specification.Template.ChartTemplate;
+    protected enableTooltip: boolean;
 
     protected container: HTMLElement;
     protected divChart: HTMLDivElement;
@@ -60,6 +61,7 @@ namespace powerbi.extensibility.visual {
       try {
         this.selectionManager = options.host.createSelectionManager();
         this.template = "<%= templateData %>" as any;
+        this.enableTooltip = "<%= enableTooltip %>" as any;
         this.container = options.element;
         this.divChart = document.createElement("div");
         this.divChart.style.cursor = "default";
@@ -71,15 +73,17 @@ namespace powerbi.extensibility.visual {
         );
         this.properties = this.getProperties(null);
 
-        // Handles mouse move events for displaying tooltips.
-        window.addEventListener("mousemove", e => {
-          const bbox = this.container.getBoundingClientRect();
-          this.currentX = e.pageX - bbox.left;
-          this.currentY = e.pageY - bbox.top;
-          if (this.handleMouseMove) {
-            this.handleMouseMove();
-          }
-        });
+        if (this.enableTooltip) {
+          // Handles mouse move events for displaying tooltips.
+          window.addEventListener("mousemove", e => {
+            const bbox = this.container.getBoundingClientRect();
+            this.currentX = e.pageX - bbox.left;
+            this.currentY = e.pageY - bbox.top;
+            if (this.handleMouseMove) {
+              this.handleMouseMove();
+            }
+          });
+        }
       } catch (e) {
         console.log(e);
       }
@@ -182,14 +186,14 @@ namespace powerbi.extensibility.visual {
                     allHighlighted = false;
                   }
                 }
-                
-                const catDate = (categoryValue as Date);
+
+                const catDate = categoryValue as Date;
                 let granularity = categoryValue.valueOf().toString();
 
                 // Try to do some extra formatting for dates
                 if (catDate && typeof catDate.toDateString === "function") {
                   granularity = catDate.toDateString();
-                } 
+                }
 
                 rowInfo.set(obj, {
                   highlight: allHighlighted,
@@ -378,7 +382,7 @@ namespace powerbi.extensibility.visual {
                 this.selectionManager.clear();
               }
             });
-            if (this.host.tooltipService.enabled()) {
+            if (this.enableTooltip && this.host.tooltipService.enabled()) {
               const service = this.host.tooltipService;
 
               this.chartContainer.addMouseEnterListener((table, rowIndices) => {
@@ -395,14 +399,23 @@ namespace powerbi.extensibility.visual {
                         .filter(x => x != "_id")
                         .map(key => {
                           let value = row[key];
-                          const column = dataset.tables[0].columns.filter(n => n.name === key)[0];
+                          const column = dataset.tables[0].columns.filter(
+                            n => n.name === key
+                          )[0];
 
                           // Attempt to format numbers/dates nicely
-                           /** Data type in memory (number, string, Date, boolean, etc) */
+                          /** Data type in memory (number, string, Date, boolean, etc) */
                           if (value !== undefined && value !== null) {
-                            if (column.type === CharticulatorContainer.Specification.DataType.Number) {
+                            if (
+                              column.type ===
+                              CharticulatorContainer.Specification.DataType
+                                .Number
+                            ) {
                               value = parseFloat(value + "").toFixed(2);
-                            } else if (column.type === CharticulatorContainer.Specification.DataType.Date) {
+                            } else if (
+                              column.type ===
+                              CharticulatorContainer.Specification.DataType.Date
+                            ) {
                               const numVal = value as number;
                               if (typeof numVal.toFixed === "function") {
                                 const parsed = new Date(numVal);
@@ -411,12 +424,13 @@ namespace powerbi.extensibility.visual {
                             }
                           }
 
-                          const header = getDatasetResult.rowInfo.get(row).granularity;
-                          return ({
+                          const header = getDatasetResult.rowInfo.get(row)
+                            .granularity;
+                          return {
                             displayName: key,
                             header,
                             value
-                          })
+                          };
                         });
                     })
                   ),
