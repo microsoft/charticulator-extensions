@@ -57,10 +57,14 @@ namespace powerbi.extensibility.visual {
     protected currentY: number;
     protected handleMouseMove: () => void;
     private highlights: any[];
+    private lastOptions: VisualUpdateOptions;
+    private selectionIds: ISelectionId[];
+    private currentSelections: ISelectionId[];
 
     constructor(options: VisualConstructorOptions) {
       try {
         this.selectionManager = options.host.createSelectionManager();
+        this.selectionManager.registerOnSelectCallback((selectionsIds) => {this.onSelectCallBack(selectionsIds)});
         this.template = "<%= templateData %>" as any;
         this.enableTooltip = "<%= enableTooltip %>" as any;
         this.container = options.element;
@@ -88,6 +92,32 @@ namespace powerbi.extensibility.visual {
       } catch (e) {
         console.log(e);
       }
+    }
+
+    public updateSelections() {
+      debugger;
+      //Idan - add interactivity utils
+      let highlights = [];
+      let selecionsID = this.selectionManager.getSelectionIds();
+      if (selecionsID && selecionsID[0]){
+        for (let i = 0; i < this.selectionIds.length; i++) {
+          highlights.push(null);
+          for (let j = 0; j < selecionsID.length; j++) {
+            if ((<any>this.selectionIds[i]).includes(selecionsID[j])){
+              highlights[i] = true
+            }
+          }
+        }       
+      }
+      this.highlights = highlights;
+    }
+
+    public onSelectCallBack(selecionsID:any[]) {
+      debugger;
+      if (this.lastOptions){
+        this.update(this.lastOptions);
+      }
+      console.log("test")
     }
 
     public resize(width: number, height: number) {
@@ -260,8 +290,12 @@ namespace powerbi.extensibility.visual {
     }
 
     public update(options: VisualUpdateOptions) {
-      // debugger;
+      debugger;
+      this.lastOptions = options;
       this.highlights = (options as any).highlights;
+      if(!this.highlights || this.highlights.length ==0){
+          this.updateSelections();
+      }
       if (options.type & (VisualUpdateType.Data | VisualUpdateType.Style)) {
         // If data or properties changed, re-generate the visual
         this.properties = this.getProperties(options);
@@ -360,7 +394,7 @@ namespace powerbi.extensibility.visual {
             // Idan - use new interface!
 
             // Make selection ids:
-            const selectionIDs: visuals.ISelectionId[] = [];
+            let selectionIDs: visuals.ISelectionId[] = [];
             const selectionID2RowIndex = new WeakMap<ISelectionId, number>();
             dataset.tables[0].rows.forEach((row, i) => {
               const selectionID = (this.host as any)
@@ -373,7 +407,9 @@ namespace powerbi.extensibility.visual {
               selectionIDs.push(selectionID);
               selectionID2RowIndex.set(selectionID, i);
             });
+            this.selectionIds = selectionIDs;
             this.chartContainer.addSelectionListener((table, rowIndices) => {
+              debugger;
               if (
                 table != null &&
                 rowIndices != null &&
