@@ -56,6 +56,7 @@ namespace powerbi.extensibility.visual {
     protected currentX: number;
     protected currentY: number;
     protected handleMouseMove: () => void;
+    private highlights:any[];
 
     constructor(options: VisualConstructorOptions) {
       try {
@@ -104,42 +105,34 @@ namespace powerbi.extensibility.visual {
         { highlight: boolean; index: number; granularity: string }
       >;
     } {
-      if (
-        !options.dataViews ||
-        !options.dataViews[0] ||
-        !options.dataViews[0].categorical ||
-        !options.dataViews[0].categorical.categories ||
-        !options.dataViews[0].categorical.categories[0]
-      ) {
-        return null;
-      }
-      const dv = options.dataViews[0];
-      const categorical = dv.categorical;
-      const category = categorical.categories[0];
-      const valueColumns = categorical.values;
+      //debugger;
+      const inDataColumns = options.dataViews[0].table.columns;
+      const inDataRows = options.dataViews[0].table.rows;
 
       // Match columns
       const columnToValues: {
         [name: string]: {
           values: CharticulatorContainer.Specification.DataValue[];
-          highlights: boolean[];
+          highlights?: boolean[];
         };
       } = {};
       const columns = this.template.tables[0].columns as PowerBIColumn[];
       for (const column of columns) {
         let found = false;
-        if (valueColumns != null) {
-          for (const v of valueColumns) {
-            if (v.source.roles[column.powerBIName]) {
+        if (inDataColumns != null) {
+          // for (const inDataOneColumn of inDataColumns) {
+          for (let i =0; i<inDataColumns.length; i++) {
+            if (inDataColumns[i].roles[column.powerBIName]) {
+              const rowI = inDataRows.map(values => values[i]);
               columnToValues[column.powerBIName] = {
                 values: CharticulatorContainer.Dataset.convertColumnType(
-                  v.values.map(x => (x == null ? null : x.valueOf())),
+                  rowI,
                   column.type
                 ),
-                highlights: v.values.map((value, i) => {
-                  return v.highlights
-                    ? v.highlights[i] != null && value != null
-                      ? v.highlights[i].valueOf() == value.valueOf()
+                highlights: this.highlights.map((value, i) => {
+                  return this.highlights
+                    ? this.highlights[i] != null && value != null
+                      ? this.highlights[i].valueOf() == value.valueOf()
                       : false
                     : false;
                 })
@@ -157,7 +150,7 @@ namespace powerbi.extensibility.visual {
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number; granularity: string }
       >();
-      const dataset: CharticulatorContainer.Dataset.Dataset = {
+      const dataset: any = {
         name: "Dataset",
         tables: [
           {
@@ -169,44 +162,61 @@ namespace powerbi.extensibility.visual {
                 metadata: column.metadata
               };
             }),
-            rows: category.values
-              .map((categoryValue, i) => {
-                const obj: CharticulatorContainer.Dataset.Row = {
-                  _id: "ID" + i.toString()
-                };
-                let allHighlighted = true;
-                for (const column of columns) {
-                  const valueColumn = columnToValues[column.powerBIName];
-                  const value = valueColumn.values[i];
-                  if (value == null) {
-                    return null;
-                  }
-                  obj[column.powerBIName] = value;
-                  if (!valueColumn.highlights[i]) {
-                    allHighlighted = false;
-                  }
-                }
+            rows: inDataRows.map((rowi,i) => {
+              const chartDataSetRowI: CharticulatorContainer.Dataset.Row = { _id: "ID" + i.toString()};
+              for (const column of columns) {
+                chartDataSetRowI[column.name] = rowi[this.getColumnIndex(column.name,inDataColumns)];
+              }
 
-                const catDate = categoryValue as Date;
-                let granularity = categoryValue.valueOf().toString();
+              // set the correct type here
 
-                // Try to do some extra formatting for dates
-                if (catDate && typeof catDate.toDateString === "function") {
-                  granularity = catDate.toDateString();
-                }
-
-                rowInfo.set(obj, {
-                  highlight: allHighlighted,
+                rowInfo.set(chartDataSetRowI, {
+                  highlight: (this.highlights && this.highlights[i] != null? true : false) ,
                   index: i,
-                  granularity
+                  granularity: null // Idan -  maybe not needed!!! 
                 });
-                return obj;
-              })
-              .filter(x => x != null)
+
+              return chartDataSetRowI;
+
+            })
           }
         ]
-      };
+      }
+      //debugger;;
+      // this.getTeamColors(inDataRows,this.getColumnIndex("Nation",inDataColumns))
       return { dataset, rowInfo };
+    }
+
+    private getColumnIndex(charticulatorColumnName: string, inDataColumns:any):number{
+
+      for (let i =0; i<inDataColumns.length; i++) {
+        if (inDataColumns[i].roles[charticulatorColumnName]) {
+          return i
+        }
+      }
+
+      return -1;
+
+    }
+
+    private getTeamColors(row:any[],ColumnIndex:number):void{
+        const colors = {};
+        for (let i =0; i<row.length; i++) {
+          const min=0; 
+          const max=256;  
+          const r =Math.floor(Math.random() * (+max - +min)) + +min; 
+          const g =Math.floor(Math.random() * (+max - +min)) + +min;  
+          const b =Math.floor(Math.random() * (+max - +min)) + +min;          
+          const color = {r, g, b};
+          colors[row[i][ColumnIndex]] = color;
+        }
+
+        const specification = (this.chartTemplate as any).template.specification;
+        for (let i =0; i<specification.scales.length; i++) {
+            if (specification.scales[i].properties.mapping) {
+              specification.scales[i].properties.mapping = colors
+            }
+        }
     }
 
     protected getProperties(options: VisualUpdateOptions) {
@@ -246,6 +256,8 @@ namespace powerbi.extensibility.visual {
     }
 
     public update(options: VisualUpdateOptions) {
+      //debugger;
+      this.highlights = (options as any).highlights
       if (options.type & (VisualUpdateType.Data | VisualUpdateType.Style)) {
         // If data or properties changed, re-generate the visual
         this.properties = this.getProperties(options);
@@ -305,6 +317,7 @@ namespace powerbi.extensibility.visual {
                 column.powerBIName
               );
             }
+
             const instance = this.chartTemplate.instantiate(dataset);
             const { chart } = instance;
 
@@ -333,25 +346,29 @@ namespace powerbi.extensibility.visual {
                 );
               }
             }
+            //debugger;
+
+            this.chartContainer = new CharticulatorContainer.ChartContainer(
+              instance,
+              dataset
+            );
+
+            // Idan - use new interface! 
 
             // Make selection ids:
             const selectionIDs: visuals.ISelectionId[] = [];
             const selectionID2RowIndex = new WeakMap<ISelectionId, number>();
             dataset.tables[0].rows.forEach((row, i) => {
-              const selectionID = this.host
+              const selectionID = (this.host as any)
                 .createSelectionIdBuilder()
-                .withCategory(
-                  options.dataViews[0].categorical.categories[0],
-                  getDatasetResult.rowInfo.get(row).index
+                .withIdentity(
+                  options.dataViews[0].table.columns[0].queryName,
+                  options.dataViews[0].table.identity[i]
                 )
                 .createSelectionId();
               selectionIDs.push(selectionID);
               selectionID2RowIndex.set(selectionID, i);
             });
-            this.chartContainer = new CharticulatorContainer.ChartContainer(
-              instance,
-              dataset
-            );
             this.chartContainer.addSelectionListener((table, rowIndices) => {
               if (
                 table != null &&
@@ -382,6 +399,10 @@ namespace powerbi.extensibility.visual {
                 this.selectionManager.clear();
               }
             });
+
+
+            /* tooltip part! */ 
+
             if (this.enableTooltip && this.host.tooltipService.enabled()) {
               const service = this.host.tooltipService;
 
@@ -426,6 +447,8 @@ namespace powerbi.extensibility.visual {
 
                           const header = getDatasetResult.rowInfo.get(row)
                             .granularity;
+                            // fix tooltip issue when value is a number
+                            value = value ? value.toString():null
                           return {
                             displayName: key,
                             header,
@@ -449,6 +472,7 @@ namespace powerbi.extensibility.visual {
                 this.handleMouseMove = null;
               });
             }
+
             this.chartContainer.mount(this.divChart);
           }
 

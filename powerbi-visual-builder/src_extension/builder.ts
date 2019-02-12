@@ -155,7 +155,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     const objectProperties: { [name: string]: any } = {};
 
     // TODO: for now, we assume there's only one table
-    const columns = template.tables[0].columns as PowerBIColumn[];
+    //debugger;
+    let columns = [] as PowerBIColumn[];
+    for (let i = 0; i < template.tables.length; i++) { 
+      columns = columns.concat(template.tables[i].columns as PowerBIColumn[]);
+    }
+    // const columns = template.tables[0].columns as PowerBIColumn[];
 
     for (const column of columns) {
       // Refine column names
@@ -185,43 +190,44 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
-        {
-          displayName: "Granularity (Level of Detail)",
-          name: "category",
-          kind: "Grouping"
-        },
         ...columns.map(column => {
           return {
             displayName: column.displayName,
             name: column.powerBIName,
-            kind: "Measure"
+            kind: "GroupingOrMeasure"
           } as DataRole;
         })
       ],
       dataViewMappings: [
         {
-          conditions: [dataViewMappingsConditions],
-          categorical: {
-            categories: {
-              for: {
-                in: "category"
-              },
-              dataReductionAlgorithm: {
-                top: {
-                  count: 30000 // That's the maximum
-                }
+          "table": {
+              "rows": {
+                  "select" :[ ...columns.map(column =>({"for": { "in": column.powerBIName }})) ]
               }
-            },
-            values: {
-              select: columns.map(column => {
-                return {
-                  bind: { to: column.powerBIName }
-                };
-              })
-            }
           }
-        }
-      ],
+      }],
+        // {
+        //   conditions: [dataViewMappingsConditions],
+        //   categorical: {
+        //     categories: {
+        //       for: {
+        //         in: "category"
+        //       },
+        //       dataReductionAlgorithm: {
+        //         top: {
+        //           count: 30000 // That's the maximum
+        //         }
+        //       }
+        //     },
+        //     values: {
+        //       select: columns.map(column => {
+        //         return {
+        //           bind: { to: column.powerBIName }
+        //         };
+        //       })
+        //     }
+        //   }
+        // },
 
       /* Tell PBI to allow for sorting */
       sorting: {
@@ -308,6 +314,7 @@ class PowerBIVisualBuilder {
   constructor(public containerScriptURL: string) {}
 
   public activate(context: Charticulator.ApplicationExtensionContext) {
+    //debugger;
     this.context = context;
     context
       .getApplication()

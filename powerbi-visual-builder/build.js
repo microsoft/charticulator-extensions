@@ -32,7 +32,7 @@ let COMMANDS = {
     "tsc -p src_visual"
   ],
 
-  webpack: "webpack --mode=" + (isProd ? "production" : "development"),
+  webpack: "webpack --mode=development",
 
   resources: async () => {
     let resources = {
