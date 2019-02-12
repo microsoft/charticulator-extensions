@@ -194,7 +194,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           return {
             displayName: column.displayName,
             name: column.powerBIName,
-            kind: "GroupingOrMeasure"
+            kind: "Grouping"
           } as DataRole;
         })
       ],
