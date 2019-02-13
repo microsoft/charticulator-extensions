@@ -193,7 +193,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         ...columns.map(column => {
           return {
             displayName: column.displayName,
-            name: column.powerBIName,
+            name: column.powerBIName + "Role" + column.displayName, //my change
             kind: "GroupingOrMeasure"
           } as DataRole;
         })
@@ -203,7 +203,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           table: {
             rows: {
               select: [
-                ...columns.map(column => ({ for: { in: column.powerBIName } }))
+                ...columns.map(column => ({ for: { in: column.powerBIName + "Role" + column.displayName } }))
               ]
             }
           }
