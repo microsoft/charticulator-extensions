@@ -44,6 +44,7 @@ namespace powerbi.extensibility.visual {
     protected selectionManager: ISelectionManager;
 
     protected template: CharticulatorContainer.Specification.Template.ChartTemplate;
+    protected enableDrillDown: boolean;
 
     protected container: HTMLElement;
     protected divChart: HTMLDivElement;
@@ -61,6 +62,7 @@ namespace powerbi.extensibility.visual {
       try {
         this.selectionManager = options.host.createSelectionManager();
         this.template = "<%= templateData %>" as any;
+        this.enableDrillDown = "<%= enableDrillDown %>" as any;
         this.container = options.element;
         this.divChart = document.createElement("div");
         this.divChart.style.cursor = "default";
@@ -565,6 +567,7 @@ namespace powerbi.extensibility.visual {
             // Make selection ids:
             const selectionIDs: visuals.ISelectionId[] = [];
             const selectionID2RowIndex = new WeakMap<ISelectionId, number>();
+            const rowIndex2selectionID = new Map<number, ISelectionId>();
             dataset.tables[0].rows.forEach((row, i) => {
               const selectionID = this.host
                 .createSelectionIdBuilder()
@@ -575,6 +578,7 @@ namespace powerbi.extensibility.visual {
                 .createSelectionId();
               selectionIDs.push(selectionID);
               selectionID2RowIndex.set(selectionID, i);
+              rowIndex2selectionID.set(i, selectionID);
             });
             this.chartContainer = new CharticulatorContainer.ChartContainer(
               instance,
@@ -610,6 +614,24 @@ namespace powerbi.extensibility.visual {
                 this.selectionManager.clear();
               }
             });
+
+            if (this.enableDrillDown) {
+              const service = this.selectionManager;
+              this.chartContainer.addContextMenuListener(
+                // TODO change to point object
+                (table, rowIndices, options) => {
+                  const { clientX, clientY, event } = options;
+                  if ((service as any).showContextMenu) {
+                    const selection = rowIndex2selectionID.get(rowIndices[0]);
+                    (service as any).showContextMenu(selection, {
+                      x: clientX,
+                      y: clientY
+                    });
+                    event.preventDefault();
+                  }
+                }
+              );
+            }
             const powerBITooltips = dataset.tables.find(
               table => table.name === "powerBITooltips"
             );
@@ -619,7 +641,6 @@ namespace powerbi.extensibility.visual {
             )
             if (this.host.tooltipService.enabled() && powerBITooltips && visualHasTooltipData) {
               const service = this.host.tooltipService;
-
               this.chartContainer.addMouseEnterListener((table, rowIndices) => {
                 const ids = rowIndices
                   .map(i => selectionIDs[i])
@@ -702,6 +723,9 @@ namespace powerbi.extensibility.visual {
                 service.hide({ isTouchEvent: false, immediately: false });
                 this.handleMouseMove = null;
               });
+              this.chartContainer.addMouseLeaveListener(
+                (table, rowIndices) => {}
+              );
             }
             this.chartContainer.mount(this.divChart);
           }
