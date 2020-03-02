@@ -379,7 +379,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
       // Power BI will give us a set of highlight values instead of filtering the data.
-      supportsHighlight: true
+      supportsHighlight: true,
+      tooltips: {
+        supportedTypes: {
+          default: true,
+          canvas: true
+        }
+      }
     };
 
     const linksTable = this.hasAnchoredLinksAndTable(template);
