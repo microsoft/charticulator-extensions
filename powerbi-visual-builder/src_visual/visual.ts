@@ -115,7 +115,7 @@ namespace powerbi.extensibility.visual {
       }
       const dv = options.dataViews[0];
       const categorical = dv.categorical;
-      const category = categorical.categories[0];
+      const categories = options.dataViews[0].categorical.categories;
       const valueColumns = categorical.values;
 
       // Match columns
@@ -148,8 +148,48 @@ namespace powerbi.extensibility.visual {
             }
           }
         }
+        for (const v of categories) {
+          if (
+            v.source.roles[column.powerBIName] &&
+            !columnToValues[column.powerBIName]
+          ) {
+            columnToValues[column.powerBIName] = {
+              values: CharticulatorContainer.Dataset.convertColumnType(
+                v.values.map(x => (x == null ? null : x.valueOf())),
+                column.type
+              ),
+              highlights: v.values.map((value, i) => {
+                return false;
+              })
+            };
+            found = true;
+          }
+        }
         if (!found) {
           return null;
+        }
+      }
+
+      const linkColumns = options.dataViews[0].categorical.categories;
+      const links =
+        this.template.tables[1] &&
+        (this.template.tables[1].columns as PowerBIColumn[]);
+
+      if (links && linkColumns) {
+        for (const column of links) {
+          for (const v of linkColumns) {
+            if (v.source.roles[column.powerBIName]) {
+              columnToValues[column.powerBIName || column.name] = {
+                values: CharticulatorContainer.Dataset.convertColumnType(
+                  v.values.map(x => (x == null ? null : x.valueOf())),
+                  column.type
+                ),
+                highlights: v.values.map((value, i) => {
+                  return null;
+                })
+              };
+            }
+          }
         }
       }
 
@@ -157,6 +197,52 @@ namespace powerbi.extensibility.visual {
         CharticulatorContainer.Dataset.Row,
         { highlight: boolean; index: number; granularity: string }
       >();
+
+      const uniqueRows = new Set<string>();
+
+      const rows = categories[0].values
+        .map((categoryValue, i) => {
+          const obj: CharticulatorContainer.Dataset.Row = {
+            _id: /*"ID" +*/ i.toString()
+          };
+          let allHighlighted = true;
+          let rowHash = "";
+          for (const column of columns) {
+            const valueColumn = columnToValues[column.powerBIName];
+            const value = valueColumn.values[i];
+
+            if (value == null) {
+              return null;
+            }
+            obj[column.powerBIName] = value;
+            rowHash += value.toString();
+            if (!valueColumn.highlights[i]) {
+              allHighlighted = false;
+            }
+          }
+
+          const catDate = categoryValue as Date;
+          let granularity = categoryValue.valueOf().toString();
+
+          // Try to do some extra formatting for dates
+          if (catDate && typeof catDate.toDateString === "function") {
+            granularity = catDate.toDateString();
+          }
+
+          if (!uniqueRows.has(rowHash)) {
+            uniqueRows.add(rowHash);
+            rowInfo.set(obj, {
+              highlight: allHighlighted,
+              index: i,
+              granularity
+            });
+            return obj;
+          } else {
+            return null;
+          }
+        })
+        .filter(x => x != null);
+
       const dataset: CharticulatorContainer.Dataset.Dataset = {
         name: "Dataset",
         tables: [
@@ -169,42 +255,42 @@ namespace powerbi.extensibility.visual {
                 metadata: column.metadata
               };
             }),
-            rows: category.values
-              .map((categoryValue, i) => {
+            rows
+          },
+          links && linkColumns && {
+            name: "links",
+            columns:
+              linkColumns.length >= 2
+                ? links.map(column => {
+                    return {
+                      name: column.powerBIName,
+                      type: column.type,
+                      metadata: column.metadata
+                    };
+                  })
+                : null,
+            rows: links && linkColumns && categories[0].values
+              .map((source, index) => {
                 const obj: CharticulatorContainer.Dataset.Row = {
-                  _id: "ID" + i.toString()
+                  _id: index.toString()
                 };
-                let allHighlighted = true;
-                for (const column of columns) {
-                  const valueColumn = columnToValues[column.powerBIName];
-                  const value = valueColumn.values[i];
-                  if (value == null) {
-                    return null;
-                  }
-                  obj[column.powerBIName] = value;
-                  if (!valueColumn.highlights[i]) {
-                    allHighlighted = false;
+                for (const column of links) {
+                  const valueColumn =
+                    columnToValues[column.powerBIName || column.name];
+                  if (valueColumn) {
+                    const value = valueColumn.values[index];
+                    obj[column.powerBIName || column.name] = value;
                   }
                 }
-
-                const catDate = categoryValue as Date;
-                let granularity = categoryValue.valueOf().toString();
-
-                // Try to do some extra formatting for dates
-                if (catDate && typeof catDate.toDateString === "function") {
-                  granularity = catDate.toDateString();
+                if (obj.source_id && obj.target_id) {
+                  return obj;
+                } else {
+                  return null;
                 }
-
-                rowInfo.set(obj, {
-                  highlight: allHighlighted,
-                  index: i,
-                  granularity
-                });
-                return obj;
               })
-              .filter(x => x != null)
+              .filter(row => row)
           }
-        ]
+        ].filter(table => table && table.columns)
       };
       return { dataset, rowInfo };
     }
@@ -305,6 +391,23 @@ namespace powerbi.extensibility.visual {
                 column.powerBIName
               );
             }
+
+            // links table
+            const links = this.template.tables[1] && this.template.tables[1].columns as PowerBIColumn[];
+            if (links) {
+              this.chartTemplate.assignTable(
+                this.template.tables[1].name,
+                "links"
+              );
+              for (const column of links) {
+                this.chartTemplate.assignColumn(
+                  this.template.tables[1].name,
+                  column.name,
+                  column.powerBIName
+                );
+              }
+            }
+            
             const instance = this.chartTemplate.instantiate(dataset);
             const { chart } = instance;
 

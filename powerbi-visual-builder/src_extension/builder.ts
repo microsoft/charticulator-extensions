@@ -119,6 +119,14 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     }
   }
 
+  private hasAnchoredLinks(template: Charticulator.Core.Specification.Template.ChartTemplate) {
+    return template.tables[1] && template.specification.elements.filter(
+      element =>
+        element.classID === "links.table" &&
+        element.properties.anchor1 && element.properties.anchor2
+    ).length > 0;
+  }
+
   // Return a Promise<base64>
   public async generate(properties: { [name: string]: any }): Promise<string> {
     const template = this.template;
@@ -185,16 +193,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
-        {
-          displayName: "Granularity (Level of Detail)",
-          name: "category",
-          kind: "Grouping"
-        },
         ...columns.map(column => {
           return {
             displayName: column.displayName,
             name: column.powerBIName,
-            kind: "Measure"
+            kind: "GroupingOrMeasure"
           } as DataRole;
         })
       ],
@@ -203,9 +206,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           conditions: [dataViewMappingsConditions],
           categorical: {
             categories: {
-              for: {
-                in: "category"
-              },
+              select: [
+                ...columns.map(column => {
+                  return {
+                    bind: { to: column.powerBIName }
+                  };
+                })
+              ],
               dataReductionAlgorithm: {
                 top: {
                   count: 30000 // That's the maximum
@@ -238,12 +245,40 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       supportsHighlight: true
     };
 
+    if (this.hasAnchoredLinks(template)) {
+      const links = template.tables[1].columns.filter( column => column.name === "source_id" || column.name === "target_id") as PowerBIColumn[];
+
+      for (const column of links) {
+        // Refine column names
+        column.powerBIName = column.name.replace(/[^0-9a-zA-Z\_]/g, "_");
+        dataViewMappingsConditions[column.powerBIName] = { max: 1 };
+      }
+
+      links.forEach(link => {
+        const linksRole = {
+          displayName: link.name,
+          name: link.powerBIName,
+          kind: "GroupingOrMeasure"
+        } as DataRole;
+
+        capabilities.dataRoles.push(linksRole);
+
+        capabilities.dataViewMappings[0].categorical.categories.select.push({
+          for: {
+            in: link.powerBIName
+          }
+        });
+      });
+    }
+
+    const apiVersion = "2.1.0";
+
     const jsConfig: { [name: string]: any } = {
       visualGuid: config.guid,
       pluginName: config.guid,
       visualDisplayName: config.displayName,
       visualVersion: config.version,
-      apiVersion: "2.1.0",
+      apiVersion,
       templateData: template,
       enableTooltip: properties.enableTooltip
     };
@@ -256,7 +291,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const pbiviz_json = {
       visual: visual_json,
-      apiVersion: "2.1.0",
+      apiVersion,
       author: config.author,
       assets: {
         icon: "assets/icon.png"
