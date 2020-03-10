@@ -27,6 +27,10 @@ import {
   SchemaCapabilities,
   DataRole
 } from "../api/v2.1.0/schema.capabilities";
+import { AttributeMap } from "Charticulator/core/specification";
+import { LinksProperties, LinksObject } from "Charticulator/core/prototypes/links";
+import { boolean } from "Charticulator/core/expression";
+
 
 interface Resources {
   icon: string;
@@ -119,12 +123,23 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     }
   }
 
-  private hasAnchoredLinks(template: Charticulator.Core.Specification.Template.ChartTemplate) {
-    return template.tables[1] && template.specification.elements.filter(
-      element =>
-        element.classID === "links.table" &&
-        element.properties.anchor1 && element.properties.anchor2
-    ).length > 0;
+  // gets data table for links if links are anchored
+  private hasAnchoredLinksAndTable(
+    template: Charticulator.Core.Specification.Template.ChartTemplate
+  ) {
+    const link: LinksObject = template.specification.elements.find(
+      element => 
+        Boolean(element.classID === "links.table" &&
+        element.properties.anchor1 && element.properties.anchor2)
+    ) as LinksObject;
+  
+    if (link) {
+      const properties = link.properties as LinksProperties;
+      const linkTableName = properties.linkTable && properties.linkTable.table;
+      const linkTable = template.tables.find(table => table.name === linkTableName);
+  
+      return linkTable;
+    }
   }
 
   // Return a Promise<base64>
@@ -245,8 +260,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       supportsHighlight: true
     };
 
-    if (this.hasAnchoredLinks(template)) {
-      const links = template.tables[1].columns.filter( column => column.name === "source_id" || column.name === "target_id") as PowerBIColumn[];
+    const linksTable = this.hasAnchoredLinksAndTable(template);
+    if (linksTable) {
+      // only source_id and target_id columns are used for creating the links.
+      const links = linksTable.columns.filter(
+        column => column.name === "source_id" || column.name === "target_id"
+      ) as PowerBIColumn[];
 
       for (const column of links) {
         // Refine column names
