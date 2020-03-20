@@ -8,5 +8,8 @@ module.exports = {
         // Export the app as a global variable "CharticulatorPowerBIVisualBuilder"
         libraryTarget: "umd",
         library: "CharticulatorPowerBIVisualBuilder"
+    },
+    externals: {
+        Charticulator: 'Charticulator'
     }
 };
