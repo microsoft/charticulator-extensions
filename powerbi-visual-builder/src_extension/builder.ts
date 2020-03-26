@@ -263,9 +263,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     const linksTable = this.hasAnchoredLinksAndTable(template);
     if (linksTable) {
       // only source_id and target_id columns are used for creating the links.
-      const links = linksTable.columns.filter(
-        column => column.name === "source_id" || column.name === "target_id"
-      ) as PowerBIColumn[];
+      const links = linksTable.columns as PowerBIColumn[];
 
       for (const column of links) {
         // Refine column names
