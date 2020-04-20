@@ -112,7 +112,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         displayName: "Icon",
         name: "visualIcon",
         type: "file",
-        default: resources.icon
+        default: {
+          src: resources.icon,
+          name: "default.png"
+        }
       }
     ];
   }
