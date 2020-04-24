@@ -341,7 +341,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             name: column.powerBIName,
             kind: "GroupingOrMeasure"
           } as DataRole;
-        })
+        }),
+        properties.enableTooltip && {
+          displayName: "Tooltips",
+          name: "powerBITooltips",
+          kind: "GroupingOrMeasure"
+        }
       ],
       dataViewMappings: [
         {
@@ -353,7 +358,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
                   return {
                     bind: { to: column.powerBIName }
                   };
-                })
+                }),
+                {
+                  bind: { to: "powerBITooltips" }
+                }
               ],
               dataReductionAlgorithm: {
                 top: {
@@ -362,11 +370,16 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
               }
             },
             values: {
-              select: columns.map(column => {
-                return {
-                  bind: { to: column.powerBIName }
-                };
-              })
+              select: [
+                ...columns.map(column => {
+                  return {
+                    bind: { to: column.powerBIName }
+                  };
+                }),
+                {
+                  bind: { to: "powerBITooltips" }
+                }
+              ]
             }
           }
         }
@@ -414,6 +427,20 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           }
         });
       });
+    }
+
+    if (properties.enableTooltip) {
+      template.tables.push({
+        columns: [{
+          displayName: "Tooltips",
+          name: "powerBITooltips",
+          type: "string" as any,
+          metadata: {
+            kind: "categorical" as any
+          }
+        }],
+        name: "powerBITooltips"
+      })  
     }
 
     const apiVersion = "2.1.0";
