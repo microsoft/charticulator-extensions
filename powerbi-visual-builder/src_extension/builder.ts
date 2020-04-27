@@ -431,16 +431,18 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     if (properties.enableTooltip) {
       template.tables.push({
-        columns: [{
-          displayName: "Tooltips",
-          name: "powerBITooltips",
-          type: "string" as any,
-          metadata: {
-            kind: "categorical" as any
+        columns: [
+          {
+            displayName: "Tooltips",
+            name: "powerBITooltips",
+            type: "string" as any,
+            metadata: {
+              kind: "categorical" as any
+            }
           }
-        }],
+        ],
         name: "powerBITooltips"
-      })  
+      });
     }
 
     const apiVersion = "2.1.0";
