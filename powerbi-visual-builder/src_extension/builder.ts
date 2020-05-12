@@ -79,12 +79,6 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   public getProperties() {
     return [
       {
-        displayName: "Enable Tooltip",
-        name: "enableTooltip",
-        type: "boolean",
-        default: true
-      },
-      {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
@@ -342,7 +336,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             kind: "GroupingOrMeasure"
           } as DataRole;
         }),
-        properties.enableTooltip && {
+        {
           displayName: "Tooltips",
           name: "powerBITooltips",
           kind: "GroupingOrMeasure"
@@ -429,21 +423,19 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       });
     }
 
-    if (properties.enableTooltip) {
-      template.tables.push({
-        columns: [
-          {
-            displayName: "Tooltips",
-            name: "powerBITooltips",
-            type: "string" as any,
-            metadata: {
-              kind: "categorical" as any
-            }
+    template.tables.push({
+      columns: [
+        {
+          displayName: "Tooltips",
+          name: "powerBITooltips",
+          type: "string" as any,
+          metadata: {
+            kind: "categorical" as any
           }
-        ],
-        name: "powerBITooltips"
-      });
-    }
+        }
+      ],
+      name: "powerBITooltips"
+    });
 
     const apiVersion = "2.1.0";
 
@@ -453,8 +445,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualDisplayName: config.displayName,
       visualVersion: config.version,
       apiVersion,
-      templateData: template,
-      enableTooltip: properties.enableTooltip
+      templateData: template
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
