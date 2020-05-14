@@ -25,12 +25,13 @@ import { Specification } from "Charticulator/core";
 
 import {
   SchemaCapabilities,
-  DataRole
+  DataRole,
+  Objects
 } from "../api/v2.1.0/schema.capabilities";
-import { AttributeMap } from "Charticulator/core/specification";
-import { LinksProperties, LinksObject } from "Charticulator/core/prototypes/links";
-import { boolean } from "Charticulator/core/expression";
-
+import {
+  LinksProperties,
+  LinksObject
+} from "Charticulator/core/prototypes/links";
 
 interface Resources {
   icon: string;
@@ -64,6 +65,8 @@ function getText(url: string) {
     credentials: "include"
   }).then(resp => resp.text());
 }
+
+const symbolTypes = Charticulator.Core.Prototypes.Marks.symbolTypesList;
 
 class PowerBIVisualGenerator implements ExportTemplateTarget {
   constructor(
@@ -127,19 +130,116 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   private hasAnchoredLinksAndTable(
     template: Charticulator.Core.Specification.Template.ChartTemplate
   ) {
-    const link: LinksObject = template.specification.elements.find(
-      element => 
-        Boolean(element.classID === "links.table" &&
-        element.properties.anchor1 && element.properties.anchor2)
+    const link: LinksObject = template.specification.elements.find(element =>
+      Boolean(
+        element.classID === "links.table" &&
+          element.properties.anchor1 &&
+          element.properties.anchor2
+      )
     ) as LinksObject;
-  
+
     if (link) {
       const properties = link.properties as LinksProperties;
       const linkTableName = properties.linkTable && properties.linkTable.table;
-      const linkTable = template.tables.find(table => table.name === linkTableName);
-  
+      const linkTable = template.tables.find(
+        table => table.name === linkTableName
+      );
+
       return linkTable;
     }
+  }
+
+  private mapPropertyName(name: string) {
+    switch (name) {
+      case "fontSize": {
+        return "Font size";
+      }
+      default:
+        let words = name.replace(/([a-z])([A-Z])/g, "$1 $2").split(" ");
+        words = words.map(w => w.toLowerCase());
+        words[0] = words[0][0].toUpperCase() + words[0].slice(1);
+
+        return words.join(" ");
+    }
+  }
+
+  private mapPropertyToType(property: PowerBIProperty) {
+    let type: any = { text: true };
+    switch (property.type) {
+      case "number": {
+        type = { numeric: true };
+        switch (property.target.attribute) {
+          case "fontSize": {
+            type = { formatting: { fontSize: true } };
+            break;
+          }
+          case "fontFamily": {
+            type = { formatting: { fontFamily: true } };
+            break;
+          }
+        }
+        break;
+      }
+      case "font-family": {
+        type = { formatting: { fontFamily: true } };
+        break;
+      }
+      case "color": {
+        type = { fill: { solid: { color: true } } };
+        break;
+      }
+      case "boolean": {
+        type = { bool: true };
+        break;
+      }
+      case "enum": {
+        switch (property.target.attribute) {
+          case "symbol": {
+            type = {
+              enumeration: symbolTypes.map(sym => {
+                return {
+                  displayName: sym,
+                  value: sym
+                };
+              })
+            };
+            break;
+          }
+        }
+        switch (property.target.property) {
+          case "alignY":
+          case "alignX": {
+            type = {
+              enumeration: ["end", "middle", "start"].map(sym => {
+                return {
+                  displayName: sym[0].toLocaleUpperCase() + sym.slice(1),
+                  value: sym
+                };
+              })
+            };
+            break;
+          }
+          default: {
+            type = { text: true };
+          }
+        }
+        break;
+      }
+      default: {
+        type = { text: true };
+      }
+    }
+    return type;
+  }
+
+  private propertyFilter(property: PowerBIProperty) {
+    if (
+      property.target.attribute === "visible" ||
+      property.target.property === "visible"
+    ) {
+      return false;
+    }
+    return true;
   }
 
   // Return a Promise<base64>
@@ -154,7 +254,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       // also replace any non alphanumeric characters with _, spaces can screw up PBI
       guid:
         "CHARTICULATOR_VISUAL_" +
-        properties.visualName.replace(/[^A-Za-z0-9]+/, "_") +
+        properties.visualName.replace(/[^A-Za-z0-9]+/g, "_") +
         randomHEX32(),
       version: "1.0.0",
       author: {
@@ -187,21 +287,37 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     }
 
     // Populate properties
-    for (const property of template.properties as PowerBIProperty[]) {
-      property.powerBIName = (property.objectID + property.displayName).replace(
-        /[^0-9a-zA-Z\_]/g,
-        "_"
+    const powerBIObjects: Objects = {};
+    for (const property of template.properties.filter(
+      this.propertyFilter
+    ) as PowerBIProperty[]) {
+      const powerBIObjectName = property.objectID;
+
+      const object = Charticulator.Core.Prototypes.findObjectById(
+        template.specification,
+        powerBIObjectName
       );
-      let type: any = { text: true };
-      switch (property.type) {
-        case "number":
-          {
-            type = { numeric: true };
-          }
-          break;
+
+      // const object = common.findObjectById(template.specification, powerBIObjectName) as Specification.Object;
+      if (!object || !(object as any).exposed) {
+        continue;
       }
-      objectProperties[property.powerBIName] = {
-        displayName: property.displayName,
+      if (!powerBIObjects[powerBIObjectName]) {
+        powerBIObjects[powerBIObjectName] = {
+          displayName: object.properties.name,
+          properties: {}
+        };
+      }
+      property.powerBIName = (
+        property.objectID +
+        "_" +
+        property.displayName
+      ).replace(/[^0-9a-zA-Z\_]/g, "_");
+      const type = this.mapPropertyToType(property);
+      powerBIObjects[powerBIObjectName].properties[property.powerBIName] = {
+        displayName: this.mapPropertyName(
+          property.displayName.split("/").pop()
+        ),
         type
       };
     }
@@ -249,12 +365,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       sorting: {
         default: {}
       },
-      objects: {
-        chartOptions: {
-          displayName: "Charticulator",
-          properties: objectProperties
-        }
-      },
+      objects: powerBIObjects,
       // Declare that the visual supports highlight.
       // Power BI will give us a set of highlight values instead of filtering the data.
       supportsHighlight: true

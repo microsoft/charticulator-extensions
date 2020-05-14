@@ -352,10 +352,21 @@ namespace powerbi.extensibility.visual {
         return defaultProperties;
       }
 
-      for (const p of this.template.properties as PowerBIProperty[]) {
-        const object = objects.chartOptions;
-        if (object[p.powerBIName] != undefined) {
-          defaultProperties[p.powerBIName] = object[p.powerBIName];
+      const objectKeys = Object.keys(objects);
+      for (const key of objectKeys) {
+        const object = objects[key];
+        for (const p of this.template.properties.filter(
+          p => p.objectID === key
+        ) as PowerBIProperty[]) {
+          if (object[p.powerBIName] != undefined) {
+            if ((object[p.powerBIName] as any).solid) {
+              defaultProperties[p.powerBIName] = (object[
+                p.powerBIName
+              ] as any).solid.color;
+            } else {
+              defaultProperties[p.powerBIName] = object[p.powerBIName];
+            }
+          }
         }
       }
 
@@ -643,7 +654,10 @@ namespace powerbi.extensibility.visual {
       const objectName = options.objectName;
       const objectEnumeration = [];
       const properties: { [name: string]: any } = {};
-      for (const p of this.template.properties as PowerBIProperty[]) {
+      const templateProperties = this.template.properties.filter(
+        p => p.objectID === objectName
+      ) as PowerBIProperty[];
+      for (const p of templateProperties) {
         if (this.properties[p.powerBIName] !== undefined) {
           properties[p.powerBIName] = this.properties[p.powerBIName];
         } else {
@@ -687,7 +701,7 @@ namespace powerbi.extensibility.visual {
         }
       }
       switch (objectName) {
-        case "chartOptions":
+        case objectName:
           objectEnumeration.push({ objectName, properties, selector: null });
       }
       return objectEnumeration;

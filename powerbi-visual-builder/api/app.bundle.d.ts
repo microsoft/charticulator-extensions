@@ -48,7 +48,7 @@ declare module "Charticulator/app/extension" {
 
 declare module "Charticulator/app/application" {
   import { MainView } from "Charticulator/app/main_view";
-  import { MainStore } from "Charticulator/app/stores";
+  import { AppStore } from "Charticulator/app/stores";
   import { Dispatcher, Specification } from "Charticulator/core";
   import { ExtensionContext, Extension } from "Charticulator/app/extension";
   import { Action } from "Charticulator/app/actions/actions";
@@ -59,12 +59,13 @@ declare module "Charticulator/app/application" {
     public app: Application;
     constructor(app: Application);
     public getGlobalDispatcher(): Dispatcher<Action>;
-    public getMainStore(): MainStore;
+    /** Get the store */
+    public getAppStore(): AppStore;
     public getApplication(): Application;
   }
   export class Application {
     public worker: CharticulatorWorker;
-    public mainStore: MainStore;
+    public appStore: AppStore;
     public mainView: MainView;
     public extensionContext: ApplicationExtensionContext;
     public initialize(
@@ -118,6 +119,7 @@ declare module "Charticulator/app/template" {
       manager: Prototypes.ChartStateManager
     );
     public reset(): void;
+    public addTable(table: string): void;
     public addColumn(table: string, column: string): void;
     public addColumnsFromExpression(
       table: string,
@@ -161,6 +163,11 @@ declare module "Charticulator/core/dataset" {
     TableContext,
     RowContext
   } from "Charticulator/core/dataset/context";
+  export {
+    convertColumnType,
+    inferColumnType,
+    inferAndConvertColumn
+  } from "Charticulator/core/dataset/data_types";
 }
 
 declare module "Charticulator/core/expression" {
@@ -416,6 +423,9 @@ declare module "Charticulator/core/specification" {
     /** Scale attribute mappings */
     mappings: Mappings;
   }
+  export interface ExposableObject extends Object {
+    exposed: boolean;
+  }
   /** Element: a single graphical mark, such as rect, circle, wedge; an element is driven by a group of data rows */
   export interface Element<
     PropertiesType extends ObjectProperties = ObjectProperties
@@ -569,8 +579,8 @@ declare module "Charticulator/app/actions/actions" {
     ClearSelection
   } from "Charticulator/core";
   import * as DragData from "Charticulator/app/actions/drag_data";
+  import { ExportTemplateTarget } from "Charticulator/app/template";
   export { Action, SelectMark, ClearSelection };
-  export class UIAction extends Action {}
   export class Undo extends Action {
     public digest(): {
       name: string;
@@ -608,9 +618,47 @@ declare module "Charticulator/app/actions/actions" {
       };
     };
   }
-  export class Save extends Action {
+  export class ExportTemplate extends Action {
+    public kind: string;
+    public target: ExportTemplateTarget;
+    public properties: {
+      [name: string]: string;
+    };
+    constructor(
+      kind: string,
+      target: ExportTemplateTarget,
+      properties: {
+        [name: string]: string;
+      }
+    );
     public digest(): {
       name: string;
+    };
+  }
+  export class Open extends Action {
+    public id: string;
+    public onFinish?: (error?: Error) => void;
+    constructor(id: string, onFinish?: (error?: Error) => void);
+    public digest(): {
+      name: string;
+      id: string;
+    };
+  }
+  /** Save the current chart */
+  export class Save extends Action {
+    public onFinish?: (error?: Error) => void;
+    constructor(onFinish?: (error?: Error) => void);
+    public digest(): {
+      name: string;
+    };
+  }
+  export class SaveAs extends Action {
+    public saveAs: string;
+    public onFinish?: (error?: Error) => void;
+    constructor(saveAs: string, onFinish?: (error?: Error) => void);
+    public digest(): {
+      name: string;
+      saveAs: string;
     };
   }
   export class Load extends Action {
@@ -636,22 +684,30 @@ declare module "Charticulator/app/actions/actions" {
       name: string;
     };
   }
-  export class AddTable extends Action {
-    public table: Dataset.Table;
-    constructor(table: Dataset.Table);
+  export class ReplaceDataset extends Action {
+    public dataset: Dataset.Dataset;
+    constructor(dataset: Dataset.Dataset);
     public digest(): {
       name: string;
-      tableName: string;
+      datasetName: string;
     };
   }
-  export class SelectDataRow extends UIAction {
-    public table: Dataset.Table;
-    public rowIndex: number;
-    constructor(table: Dataset.Table, rowIndex: number);
+  /** Add an empty glyph to the chart */
+  export class AddGlyph extends Action {
+    public classID: string;
+    constructor(classID: string);
     public digest(): {
       name: string;
-      rowIndex: number;
-      tableName: string;
+      classID: string;
+    };
+  }
+  /** Remove a glyph from the chart */
+  export class RemoveGlyph extends Action {
+    public glyph: Specification.Glyph;
+    constructor(glyph: Specification.Glyph);
+    public digest(): {
+      name: string;
+      glyph: string[];
     };
   }
   export class AddMarkToGlyph extends Action {
@@ -847,7 +903,7 @@ declare module "Charticulator/app/actions/actions" {
       };
     };
   }
-  export class AddPlotSegment extends Action {
+  export class AddChartElement extends Action {
     public classID: string;
     public mappings: {
       [name: string]: [Specification.AttributeValue, Specification.Mapping];
@@ -875,11 +931,6 @@ declare module "Charticulator/app/actions/actions" {
     public digest(): {
       name: string;
       chartElement: string[];
-    };
-  }
-  export class DeleteSelection extends Action {
-    public digest(): {
-      name: string;
     };
   }
   export class SetChartElementMapping extends Action {
@@ -1209,10 +1260,10 @@ declare module "Charticulator/app/actions/drag_data" {
 declare module "Charticulator/app/extension/abstract" {
   import { Dispatcher } from "Charticulator/core";
   import { Action } from "Charticulator/app/actions/actions";
-  import { MainStore } from "Charticulator/app/stores/main_store";
+  import { AppStore } from "Charticulator/app/stores";
   export interface ExtensionContext {
     getGlobalDispatcher(): Dispatcher<Action>;
-    getMainStore(): MainStore;
+    getAppStore(): AppStore;
   }
   export interface Extension {
     activate(context: ExtensionContext): void;
@@ -1222,10 +1273,10 @@ declare module "Charticulator/app/extension/abstract" {
 
 declare module "Charticulator/app/main_view" {
   import * as React from "react";
-  import { MainStore } from "Charticulator/app/stores";
+  import { AppStore } from "Charticulator/app/stores";
   import { MenuBar } from "Charticulator/app/views/menubar";
   export interface MainViewProps {
-    store: MainStore;
+    store: AppStore;
   }
   export interface MainViewState {
     glyphViewMaximized: boolean;
@@ -1236,10 +1287,10 @@ declare module "Charticulator/app/main_view" {
     public refMenuBar: MenuBar;
     constructor(props: MainViewProps);
     public static childContextTypes: {
-      store: (s: MainStore) => boolean;
+      store: (s: AppStore) => boolean;
     };
     public getChildContext(): {
-      store: MainStore;
+      store: AppStore;
     };
     public render(): JSX.Element;
   }
@@ -1247,15 +1298,8 @@ declare module "Charticulator/app/main_view" {
 
 declare module "Charticulator/app/stores" {
   export { BaseStore } from "Charticulator/core/store/base";
-  export { MainStore } from "Charticulator/app/stores/main_store";
-  export { DatasetStore } from "Charticulator/app/stores/dataset";
-  export {
-    ChartStore,
-    Selection,
-    MarkSelection,
-    ChartElementSelection,
-    GlyphSelection
-  } from "Charticulator/app/stores/chart";
+  export { AppStore, AppStoreState } from "Charticulator/app/stores/app_store";
+  export * from "Charticulator/app/stores/selection";
 }
 
 declare module "Charticulator/worker" {
@@ -1293,7 +1337,13 @@ declare module "Charticulator/app/config" {
     DisableFileView?: boolean;
     /** Load extensions */
     Extensions?: Array<{
-      script: string;
+      script:
+        | string
+        | {
+            src: string;
+            sha256: string;
+            integrity: string;
+          };
       style: string;
       initialize: string;
     }>;
@@ -1307,6 +1357,8 @@ declare module "Charticulator/app/config" {
         type: string;
       }>;
     }>;
+    WorkerURL: string;
+    ContainerURL: string;
   }
   export function getConfig(): CharticulatorAppConfig;
 }
@@ -1431,6 +1483,7 @@ declare module "Charticulator/core/common/unique_id" {
 }
 
 declare module "Charticulator/core/common/utils" {
+  import { Color } from "Charticulator/core/common/color";
   /** zip two arrays, return an iterator */
   export function zip<T1, T2>(a: T1[], b: T2[]): IterableIterator<[T1, T2]>;
   /** zip two arrays, return a new array */
@@ -1469,7 +1522,7 @@ declare module "Charticulator/core/common/utils" {
     field: FieldType
   ): ObjectType;
   /** Fill default values into an object */
-  export function fillDefaults<T extends {}>(obj: T, defaults: T): T;
+  export function fillDefaults<T extends {}>(obj: Partial<T>, defaults: T): T;
   /** Find the index of the first element that satisfies the predicate, return -1 if not found */
   export function indexOf<T>(
     array: T[],
@@ -1575,6 +1628,18 @@ declare module "Charticulator/core/common/utils" {
    * @returns negative if version1 < version2, zero if version1 == version2, positive if version1 > version2
    */
   export function compareVersion(version1: string, version2: string): number;
+  /**
+   * Converts Color object to Hex
+   * @param color Color object
+   * @returns Hex representation of color
+   */
+  export function rgbToHex(color: Color): string;
+  /**
+   * Converts Hex to Color object
+   * @param color Color object
+   * @returns Hex representation of color
+   */
+  export function hexToRgb(hex: string): Color;
 }
 
 declare module "Charticulator/core/common/scales" {
@@ -1592,6 +1657,9 @@ declare module "Charticulator/core/common/scales" {
       public domainMin: number;
       public domainMax: number;
       public inferParameters(values: number[]): void;
+      public adjustDomain(options: {
+        startWithZero?: "default" | "always" | "never";
+      }): void;
       public get(v: number): number;
       public ticks(n?: number): number[];
       public tickFormat(
@@ -1732,6 +1800,8 @@ declare module "Charticulator/core/dataset/dataset" {
   export interface Table {
     /** Table name */
     name: string;
+    /** The name to be shown to the user */
+    displayName: string;
     /** Columns in the table */
     columns: Column[];
     /** Rows in the table */
@@ -1798,6 +1868,37 @@ declare module "Charticulator/core/dataset/context" {
     constructor(parent: TableContext, row: Row);
     public getVariable(name: string): string | number | boolean | Row[];
   }
+}
+
+declare module "Charticulator/core/dataset/data_types" {
+  import {
+    DataValue,
+    DataType,
+    ColumnMetadata
+  } from "Charticulator/core/dataset/dataset";
+  export interface DataTypeDescription {
+    test: (v: string) => boolean;
+    convert: (v: string) => DataValue;
+  }
+  export let dataTypes: { [name in DataType]: DataTypeDescription };
+  /** Infer column type from a set of strings (not null) */
+  export function inferColumnType(values: string[]): DataType;
+  /** Convert strings to value type, null & non-convertibles are set as null */
+  export function convertColumn(type: DataType, values: string[]): DataValue[];
+  /** Get distinct values from a non-null array of basic types */
+  export function getDistinctValues(values: DataValue[]): DataValue[];
+  /** Infer column metadata and update type if necessary */
+  export function inferAndConvertColumn(
+    values: string[],
+    hints?: {
+      [name: string]: string;
+    }
+  ): {
+    values: DataValue[];
+    type: DataType;
+    metadata: ColumnMetadata;
+  };
+  export function convertColumnType(values: any[], type: DataType): DataValue[];
 }
 
 declare module "Charticulator/core/expression/classes" {
@@ -2135,6 +2236,14 @@ declare module "Charticulator/core/graphics/elements" {
     fontFamily: string;
     fontSize: number;
   }
+  export interface TextOnPath extends Element {
+    type: "text-on-path";
+    pathCmds: Path["cmds"];
+    align: "start" | "middle" | "end";
+    text: string;
+    fontFamily: string;
+    fontSize: number;
+  }
   export interface Image extends Element {
     type: "image";
     src: string;
@@ -2142,7 +2251,8 @@ declare module "Charticulator/core/graphics/elements" {
     y: number;
     width: number;
     height: number;
-    mode?: "letterbox" | "fill" | "stretch";
+    /** Size mode, default to letterbox */
+    mode?: "letterbox" | "stretch";
   }
   export interface Group extends Element {
     type: "group";
@@ -2653,29 +2763,38 @@ declare module "Charticulator/core/prototypes/guides" {
   import {
     AttributeDescription,
     Handles,
-    SnappingGuides
+    SnappingGuides,
+    BoundingBox,
+    Controls
   } from "Charticulator/core/prototypes/common";
   import { ObjectClassMetadata } from "Charticulator/core/prototypes/index";
   export interface GuideAttributes extends Specification.AttributeMap {
     value: number;
   }
-  export interface GuideState extends Specification.ObjectState {
-    attributes: GuideAttributes;
+  export interface GuideProperties extends Specification.AttributeMap {
+    axis: "x" | "y";
+    gap: number;
   }
-  export class GuideClass extends ChartElementClass {
+  export class GuideClass extends ChartElementClass<
+    GuideProperties,
+    GuideAttributes
+  > {
     public static classID: string;
     public static type: string;
     public static metadata: ObjectClassMetadata;
-    public readonly state: GuideState;
-    public static defaultAttributes: Specification.AttributeMap;
+    public static defaultProperties: Partial<GuideProperties>;
     public attributeNames: string[];
     public attributes: {
       [name: string]: AttributeDescription;
     };
     public initializeState(): void;
+    public buildConstraints(solver: ConstraintSolver): void;
     /** Get handles given current state */
     public getHandles(): Handles.Description[];
     public getSnappingGuides(): SnappingGuides.Description[];
+    public getAttributePanelWidgets(
+      manager: Controls.WidgetManager
+    ): Controls.Widget[];
   }
   export interface GuideCoordinatorAttributes
     extends Specification.AttributeMap {
@@ -2684,15 +2803,18 @@ declare module "Charticulator/core/prototypes/guides" {
     x2: number;
     y2: number;
   }
-  export interface GuideCoordinatorState extends Specification.ObjectState {
-    attributes: GuideCoordinatorAttributes;
+  export interface GuideCoordinatorProperties
+    extends Specification.AttributeMap {
+    axis: "x" | "y";
   }
-  export class GuideCoordinatorClass extends ChartElementClass {
+  export class GuideCoordinatorClass extends ChartElementClass<
+    GuideCoordinatorProperties,
+    GuideCoordinatorAttributes
+  > {
     public static classID: string;
     public static type: string;
     public static metadata: ObjectClassMetadata;
-    public readonly state: GuideCoordinatorState;
-    public static defaultAttributes: Specification.AttributeMap;
+    public static defaultAttributes: Partial<GuideCoordinatorAttributes>;
     public buildConstraints(solver: ConstraintSolver): void;
     public getValueNames(): string[];
     public readonly attributeNames: string[];
@@ -2702,7 +2824,12 @@ declare module "Charticulator/core/prototypes/guides" {
     public initializeState(): void;
     /** Get handles given current state */
     public getHandles(): Handles.Description[];
+    public getBoundingBox(): BoundingBox.Description;
     public getSnappingGuides(): SnappingGuides.Description[];
+    /** Get controls given current state */
+    public getAttributePanelWidgets(
+      manager: Controls.WidgetManager
+    ): Controls.Widget[];
   }
   export function registerClasses(): void;
 }
@@ -2717,7 +2844,8 @@ declare module "Charticulator/core/prototypes/legends" {
     BoundingBox,
     Controls,
     Handles,
-    ObjectClassMetadata
+    ObjectClassMetadata,
+    TemplateParameters
   } from "Charticulator/core/prototypes/common";
   export interface LegendAttributes extends Specification.AttributeMap {
     x: number;
@@ -2771,6 +2899,7 @@ declare module "Charticulator/core/prototypes/legends" {
     public getAttributePanelWidgets(
       manager: Controls.WidgetManager
     ): Controls.Widget[];
+    public getTemplateParameters(): TemplateParameters;
   }
   export interface CategoricalLegendItem {
     type: "number" | "color" | "boolean";
@@ -2806,16 +2935,10 @@ declare module "Charticulator/core/prototypes/legends" {
       style: Specification.Types.AxisRenderingStyle;
     };
   }
-  export interface NumericalNumberLegendState
-    extends Specification.ObjectState {
-    attributes: NumericalNumberLegendAttributes;
-  }
-  export interface NumericalNumberLegendObject extends Specification.Object {
-    properties: NumericalNumberLegendProperties;
-  }
-  export class NumericalNumberLegendClass extends ChartElementClass {
-    public readonly object: NumericalNumberLegendObject;
-    public readonly state: NumericalNumberLegendState;
+  export class NumericalNumberLegendClass extends ChartElementClass<
+    NumericalNumberLegendProperties,
+    NumericalNumberLegendAttributes
+  > {
     public static classID: string;
     public static type: string;
     public static metadata: ObjectClassMetadata;
@@ -2851,7 +2974,8 @@ declare module "Charticulator/core/prototypes/links" {
   import { ChartElementClass } from "Charticulator/core/prototypes/chart_element";
   import {
     Controls,
-    ObjectClassMetadata
+    ObjectClassMetadata,
+    TemplateParameters
   } from "Charticulator/core/prototypes/common";
   import { DataflowTable } from "Charticulator/core/prototypes/dataflow";
   import { ChartStateManager } from "Charticulator/core/prototypes/state";
@@ -2979,6 +3103,7 @@ declare module "Charticulator/core/prototypes/links" {
     public getAttributePanelWidgets(
       manager: Controls.WidgetManager
     ): Controls.Widget[];
+    public getTemplateParameters(): TemplateParameters;
   }
   export class SeriesLinksClass extends LinksClass {
     public static classID: string;
@@ -3009,8 +3134,9 @@ declare module "Charticulator/core/prototypes/marks" {
     CreationParameters,
     MarkClass
   } from "Charticulator/core/prototypes/marks/mark";
+  import { symbolTypesList } from "Charticulator/core/prototypes/marks/symbol";
   export function registerClasses(): void;
-  export { CreationParameters, MarkClass };
+  export { CreationParameters, MarkClass, symbolTypesList };
 }
 
 declare module "Charticulator/core/prototypes/plot_segments" {
@@ -3024,7 +3150,8 @@ declare module "Charticulator/core/prototypes/plot_segments" {
     CartesianPlotSegment,
     CurvePlotSegment,
     PolarPlotSegment,
-    Region2DAttributes
+    Region2DAttributes,
+    Region2DProperties
   } from "Charticulator/core/prototypes/plot_segments/region_2d";
   export {
     PlotSegmentClass
@@ -3125,6 +3252,7 @@ declare module "Charticulator/core/prototypes/common" {
   export type OrderDescription = OrderDescriptionItem[];
   export interface DataMappingHints {
     rangeNumber?: [number, number];
+    startWithZero?: "default" | "never" | "always";
     autoRange?: boolean;
     rangeEnum?: string[];
     rangeImage?: string[];
@@ -3490,6 +3618,7 @@ declare module "Charticulator/core/prototypes/state" {
   } from "Charticulator/core/prototypes/dataflow";
   import { ObjectClass } from "Charticulator/core/prototypes/object";
   import { ChartConstraintSolver } from "Charticulator/core/solver";
+  import { ValueType } from "Charticulator/core/expression/classes";
   /**
    * Represents a set of default attributes
    */
@@ -3569,7 +3698,10 @@ declare module "Charticulator/core/prototypes/state" {
       glyph: Specification.Glyph
     ): void;
     /** Add a chart element */
-    public addChartElement(element: Specification.ChartElement): void;
+    public addChartElement(
+      element: Specification.ChartElement,
+      index?: number
+    ): void;
     public reorderArray<T>(
       array: T[],
       fromIndex: number,
@@ -3632,7 +3764,7 @@ declare module "Charticulator/core/prototypes/state" {
       tableName: string,
       groupBy: Specification.Types.GroupBy,
       expression: string
-    ): Array<import("Charticulator/core/expression/classes").ValueType>;
+    ): ValueType[];
     public solveConstraints(
       additional?: (solver: ChartConstraintSolver) => void,
       mappingOnly?: boolean
@@ -3892,9 +4024,14 @@ declare module "Charticulator/core/solver/plugins" {
 declare module "Charticulator/core/specification/template" {
   import { FieldType } from "Charticulator/core/common";
   import * as Dataset from "Charticulator/core/dataset";
-  import { Chart } from "Charticulator/core/specification/index";
-  import * as Types from "Charticulator/core/specification/types";
   import { DefaultAttributes } from "Charticulator/core/prototypes";
+  import {
+    Chart,
+    DataType,
+    AttributeType
+  } from "Charticulator/core/specification/index";
+  import * as Types from "Charticulator/core/specification/types";
+  import { AxisRenderingStyle } from "Charticulator/core/specification/types";
   export type PropertyField =
     | string
     | {
@@ -3916,7 +4053,7 @@ declare module "Charticulator/core/specification/template" {
   export interface Column {
     displayName: string;
     name: string;
-    type: string;
+    type: DataType;
     metadata: Dataset.ColumnMetadata;
   }
   export interface Table {
@@ -3930,7 +4067,7 @@ declare module "Charticulator/core/specification/template" {
       property?: PropertyField;
       attribute?: string;
     };
-    type: string;
+    type: AttributeType;
     default?: string | number | boolean;
   }
   /** Infer values from data */
@@ -3940,6 +4077,9 @@ declare module "Charticulator/core/specification/template" {
       table: string;
       groupBy?: Types.GroupBy;
     };
+    description?: string;
+    /** Disable any automatic domain/range/axis behavior */
+    disableAuto?: boolean;
     axis?: AxisInference;
     scale?: ScaleInference;
     expression?: ExpressionInference;
@@ -3952,6 +4092,7 @@ declare module "Charticulator/core/specification/template" {
     additionalExpressions?: string[];
     /** Type */
     type: "default" | "categorical" | "numerical";
+    style?: AxisRenderingStyle;
     /** Infer axis data and assign to this property */
     property: PropertyField;
   }
@@ -4003,6 +4144,7 @@ declare module "Charticulator/core/specification/types" {
     /** Pre/post gap, will override the default with OR operation */
     enablePrePostGap?: boolean;
     tickDataExpression?: Expression;
+    tickFormat?: string;
     style?: AxisRenderingStyle;
   }
   export interface AxisRenderingStyle extends AttributeMap {
@@ -4021,6 +4163,11 @@ declare module "Charticulator/core/specification/types" {
   export interface ColorGradient extends AttributeMap {
     colorspace: "hcl" | "lab";
     colors: Color[];
+  }
+  export interface Image extends AttributeMap {
+    src: string;
+    width: number;
+    height: number;
   }
   /** LinkAnchor: specifies an anchor in a link */
   export interface LinkAnchorPoint extends AttributeMap {
@@ -4072,6 +4219,8 @@ declare module "Charticulator/core/actions/actions" {
     Element,
     PlotSegment
   } from "Charticulator/core/specification";
+  import * as Specification from "Charticulator/core/specification";
+  export function objectDigest(obj?: Specification.Object): string[];
   export class Action {
     public dispatch(dispatcher: Dispatcher<Action>): void;
     public digest(): {
@@ -4101,77 +4250,6 @@ declare module "Charticulator/core/actions/actions" {
     public digest(): {
       name: string;
     };
-  }
-}
-
-declare module "Charticulator/app/stores/main_store" {
-  import { Specification } from "Charticulator/core";
-  import { Actions } from "Charticulator/app/actions";
-  import { BaseStore } from "Charticulator/core/store/base";
-  import { ChartStore, ChartStoreState } from "Charticulator/app/stores/chart";
-  import {
-    DatasetStore,
-    DatasetStoreState
-  } from "Charticulator/app/stores/dataset";
-  import { Dataset } from "Charticulator/core";
-  import { CharticulatorWorker } from "Charticulator/worker";
-  import { AbstractBackend } from "Charticulator/app/backend/abstract";
-  import { ExportTemplateTarget } from "Charticulator/app/template";
-  export class HistoryManager<StateType> {
-    public statesBefore: StateType[];
-    public statesAfter: StateType[];
-    public addState(state: StateType): void;
-    public undo(currentState: StateType): StateType;
-    public redo(currentState: StateType): StateType;
-    public clear(): void;
-  }
-  export interface MainStoreState {
-    version: string;
-    dataset: DatasetStoreState;
-    chart: ChartStoreState;
-  }
-  export class MainStore extends BaseStore {
-    public static EVENT_STATUSBAR: string;
-    public static EVENT_IS_NESTED_EDITOR: string;
-    public static EVENT_NESTED_EDITOR_EDIT: string;
-    public readonly parent: null;
-    public readonly worker: CharticulatorWorker;
-    public datasetStore: DatasetStore;
-    public chartStore: ChartStore;
-    public statusBar: {
-      [name: string]: string;
-    };
-    public isNestedEditor: boolean;
-    public disableFileView: boolean;
-    public historyManager: HistoryManager<MainStoreState>;
-    public backend: AbstractBackend;
-    public currentChartID: string;
-    constructor(worker: CharticulatorWorker, dataset: Dataset.Dataset);
-    public saveState(): MainStoreState;
-    public saveDecoupledState(): MainStoreState;
-    public loadState(state: MainStoreState): void;
-    public saveHistory(): void;
-    public renderSVG(): string;
-    public renderLocalSVG(): Promise<string>;
-    public handleAction(action: Actions.Action): void;
-    public backendOpenChart(id: string): Promise<void>;
-    public backendSaveChart(): Promise<void>;
-    public backendSaveChartAs(name: string): Promise<string>;
-    public setupNestedEditor(
-      callback: (newSpecification: Specification.Chart) => void
-    ): void;
-    public registerExportTemplateTarget(
-      name: string,
-      ctor: (
-        template: Specification.Template.ChartTemplate
-      ) => ExportTemplateTarget
-    ): void;
-    public unregisterExportTemplateTarget(name: string): void;
-    public listExportTemplateTargets(): string[];
-    public createExportTemplateTarget(
-      name: string,
-      template: Specification.Template.ChartTemplate
-    ): ExportTemplateTarget;
   }
 }
 
@@ -4212,87 +4290,46 @@ declare module "Charticulator/core/store/base" {
   }
 }
 
-declare module "Charticulator/app/stores/dataset" {
-  import { Dataset } from "Charticulator/core";
-  import { BaseStore } from "Charticulator/core/store/base";
-  import { Actions } from "Charticulator/app/actions";
-  import { MainStore } from "Charticulator/app/stores/main_store";
-  export class DatasetStoreState {
-    public dataset: Dataset.Dataset;
-  }
-  export class DatasetStore extends BaseStore {
-    public static EVENT_CHANGED: string;
-    public readonly parent: MainStore;
-    public dataset: Dataset.Dataset;
-    public context: Dataset.DatasetContext;
-    constructor(parent: MainStore);
-    public saveState(): DatasetStoreState;
-    public loadState(state: DatasetStoreState): void;
-    public handleAction(action: Actions.Action): void;
-    public setDataset(dataset: Dataset.Dataset): void;
-    public getTable(name: string): Dataset.Table;
-    public getTables(): Dataset.Table[];
-    public getColumnVector(
-      table: Dataset.Table,
-      columnName: string
-    ): Dataset.DataValue[];
-  }
-}
-
-declare module "Charticulator/app/stores/chart" {
+declare module "Charticulator/app/stores/app_store" {
   import {
+    Dataset,
     Expression,
     Prototypes,
     Solver,
     Specification
   } from "Charticulator/core";
   import { BaseStore } from "Charticulator/core/store/base";
+  import { CharticulatorWorker } from "Charticulator/worker";
   import { Actions } from "Charticulator/app/actions";
-  import { DatasetStore } from "Charticulator/app/stores/dataset";
-  import { MainStore } from "Charticulator/app/stores/main_store";
-  export abstract class Selection {}
-  export class ChartElementSelection extends Selection {
-    public chartElement: Specification.ChartElement;
-    /** Create a mark layout selection
-     *
-     * @param chartElement the selected mark layout
-     * @param glyphIndex if specified, select the mark at the specified index
-     */
-    constructor(chartElement: Specification.ChartElement);
-  }
-  export class GlyphSelection extends Selection {
-    public plotSegment: Specification.PlotSegment;
-    public glyph: Specification.Glyph;
-    constructor(
-      plotSegment: Specification.PlotSegment,
-      glyph: Specification.Glyph
-    );
-  }
-  export class MarkSelection extends Selection {
-    public plotSegment: Specification.PlotSegment;
-    public glyph: Specification.Glyph;
-    public mark: Specification.Element;
-    constructor(
-      plotSegment: Specification.PlotSegment,
-      glyph: Specification.Glyph,
-      mark: Specification.Element
-    );
-  }
-  export interface ChartStoreState {
-    chart: Specification.Chart;
-    chartState: Specification.ChartState;
-  }
-  export interface SelectionState {
-    type: string;
-    chartElementID?: string;
-    glyphID?: string;
-    markID?: string;
-    glyphIndex?: number;
-  }
+  import { AbstractBackend } from "Charticulator/app/backend/abstract";
+  import { ExportTemplateTarget } from "Charticulator/app/template";
+  import { ActionHandlerRegistry } from "Charticulator/app/stores/action_handlers";
+  import { HistoryManager } from "Charticulator/app/stores/history_manager";
+  import { Selection } from "Charticulator/app/stores/selection";
   export interface ChartStoreStateSolverStatus {
     solving: boolean;
   }
-  export class ChartStore extends BaseStore {
+  export interface SelectionState {
+    selection?: {
+      type: string;
+      chartElementID?: string;
+      glyphID?: string;
+      markID?: string;
+      glyphIndex?: number;
+    };
+    currentGlyphID?: string;
+  }
+  export interface AppStoreState {
+    version: string;
+    dataset: Dataset.Dataset;
+    chart: Specification.Chart;
+    chartState: Specification.ChartState;
+  }
+  export class AppStore extends BaseStore {
+    public static EVENT_IS_NESTED_EDITOR: string;
+    public static EVENT_NESTED_EDITOR_EDIT: string;
+    /** Fires when the dataset changes */
+    public static EVENT_DATASET: string;
     /** Fires when the chart state changes */
     public static EVENT_GRAPHICS: string;
     /** Fires when the selection changes */
@@ -4301,11 +4338,20 @@ declare module "Charticulator/app/stores/chart" {
     public static EVENT_CURRENT_TOOL: string;
     /** Fires when solver status changes */
     public static EVENT_SOLVER_STATUS: string;
-    public readonly parent: MainStore;
+    /** The WebWorker for solving constraints */
+    public readonly worker: CharticulatorWorker;
+    /** Is this app a nested chart editor? */
+    public isNestedEditor: boolean;
+    /** Should we disable the FileView */
+    public disableFileView: boolean;
+    /** The current dataset */
+    public dataset: Dataset.Dataset;
+    /** The current chart */
     public chart: Specification.Chart;
+    /** The current chart state */
     public chartState: Specification.ChartState;
-    public datasetStore: DatasetStore;
     public currentSelection: Selection;
+    public currentGlyph: Specification.Glyph;
     protected selectedGlyphIndex: {
       [id: string]: number;
     };
@@ -4313,11 +4359,47 @@ declare module "Charticulator/app/stores/chart" {
     public currentToolOptions: string;
     public chartManager: Prototypes.ChartStateManager;
     public solverStatus: ChartStoreStateSolverStatus;
-    constructor(parent: MainStore);
-    public saveState(): ChartStoreState;
+    /** Manages the history of states */
+    public historyManager: HistoryManager<AppStoreState>;
+    /** The backend that manages data */
+    public backend: AbstractBackend;
+    /** The id of the currently editing chart */
+    public currentChartID: string;
+    public actionHandlers: ActionHandlerRegistry<AppStore, Actions.Action>;
+    constructor(worker: CharticulatorWorker, dataset: Dataset.Dataset);
+    public saveState(): AppStoreState;
+    public saveDecoupledState(): AppStoreState;
+    public loadState(state: AppStoreState): void;
+    public saveHistory(): void;
+    public renderSVG(): string;
+    public renderLocalSVG(): Promise<string>;
+    public handleAction(action: Actions.Action): void;
+    public backendOpenChart(id: string): Promise<void>;
+    public backendSaveChart(): Promise<void>;
+    public backendSaveChartAs(name: string): Promise<string>;
+    public setupNestedEditor(
+      callback: (newSpecification: Specification.Chart) => void
+    ): void;
+    public registerExportTemplateTarget(
+      name: string,
+      ctor: (
+        template: Specification.Template.ChartTemplate
+      ) => ExportTemplateTarget
+    ): void;
+    public unregisterExportTemplateTarget(name: string): void;
+    public listExportTemplateTargets(): string[];
+    public createExportTemplateTarget(
+      name: string,
+      template: Specification.Template.ChartTemplate
+    ): ExportTemplateTarget;
+    public getTable(name: string): Dataset.Table;
+    public getTables(): Dataset.Table[];
+    public getColumnVector(
+      table: Dataset.Table,
+      columnName: string
+    ): Dataset.DataValue[];
     public saveSelectionState(): SelectionState;
-    public loadState(state: ChartStoreState): void;
-    public loadSelectionState(selection: SelectionState): void;
+    public loadSelectionState(selectionState: SelectionState): void;
     public setSelectedGlyphIndex(
       plotSegmentID: string,
       glyphIndex: number
@@ -4341,8 +4423,6 @@ declare module "Charticulator/app/stores/chart" {
       attr: string,
       value: number
     ): void;
-    public handleAction(action: Actions.Action): void;
-    public handleMarkAction(action: Actions.MarkAction): void;
     /** Given the current selection, find a reasonable plot segment for a glyph */
     public findPlotSegmentForGlyph(
       glyph: Specification.Glyph
@@ -4374,8 +4454,39 @@ declare module "Charticulator/app/stores/chart" {
     public verifyUserExpressionWithTable(
       inputString: string,
       table: string,
-      options: Expression.VerifyUserExpressionOptions
+      options?: Expression.VerifyUserExpressionOptions
     ): Expression.VerifyUserExpressionReport;
+  }
+}
+
+declare module "Charticulator/app/stores/selection" {
+  import { Specification } from "Charticulator/core";
+  /** Base class for selections */
+  export abstract class Selection {}
+  /** ChartElement selection */
+  export class ChartElementSelection extends Selection {
+    public chartElement: Specification.ChartElement;
+    constructor(chartElement: Specification.ChartElement);
+  }
+  /** Glyph selection */
+  export class GlyphSelection extends Selection {
+    public plotSegment: Specification.PlotSegment;
+    public glyph: Specification.Glyph;
+    constructor(
+      plotSegment: Specification.PlotSegment,
+      glyph: Specification.Glyph
+    );
+  }
+  /** Mark selection */
+  export class MarkSelection extends Selection {
+    public plotSegment: Specification.PlotSegment;
+    public glyph: Specification.Glyph;
+    public mark: Specification.Element;
+    constructor(
+      plotSegment: Specification.PlotSegment,
+      glyph: Specification.Glyph,
+      mark: Specification.Element
+    );
   }
 }
 
@@ -4416,6 +4527,12 @@ declare module "Charticulator/core/graphics/renderer/text_measurer" {
     public setFontFamily(family: string): void;
     public setFontSize(size: number): void;
     public measure(text: string): TextMeasurement;
+    public static GetGlobalInstance(): TextMeasurer;
+    public static Measure(
+      text: string,
+      family: string,
+      size: number
+    ): TextMeasurement;
     public static ComputeTextPosition(
       x: number,
       y: number,
@@ -4525,6 +4642,7 @@ declare module "Charticulator/core/prototypes/object" {
     /** Exclude this from the constraint solver */
     solverExclude?: boolean;
     stateExclude?: boolean;
+    editableInGlyphStage?: boolean;
     /** Default value: used when nothing is specified for this attribute */
     defaultValue?: Specification.AttributeValue;
     /** Default range: hint for scale inference */
@@ -4611,6 +4729,10 @@ declare module "Charticulator/core/prototypes/object" {
     public static Register(constructor: ObjectClassConstructor): void;
     public static RegisterType(name: string, ...parents: string[]): void;
     public static isType(type: string, parentType: string): boolean;
+    /**
+     * Gets an interator of registered classes.
+     */
+    public static RegisteredClasses(): IterableIterator<ObjectClassConstructor>;
   }
   export let isType: typeof ObjectClasses.isType;
 }
@@ -4676,6 +4798,60 @@ declare module "Charticulator/core/prototypes/marks/mark" {
   }
 }
 
+declare module "Charticulator/core/prototypes/marks/symbol" {
+  import { Point } from "Charticulator/core/common";
+  import * as Graphics from "Charticulator/core/graphics";
+  import {
+    BoundingBox,
+    Controls,
+    DropZones,
+    Handles,
+    LinkAnchor,
+    ObjectClassMetadata,
+    SnappingGuides,
+    TemplateParameters,
+    AttributeDescriptions
+  } from "Charticulator/core/prototypes/common";
+  import { ChartStateManager } from "Charticulator/core/prototypes/state";
+  import { EmphasizableMarkClass } from "Charticulator/core/prototypes/marks/emphasis";
+  import {
+    SymbolElementAttributes,
+    SymbolElementProperties
+  } from "Charticulator/core/prototypes/marks/symbol.attrs";
+  export const symbolTypesList: string[];
+  export { SymbolElementAttributes, SymbolElementProperties };
+  export class SymbolElementClass extends EmphasizableMarkClass<
+    SymbolElementProperties,
+    SymbolElementAttributes
+  > {
+    public static classID: string;
+    public static type: string;
+    public static metadata: ObjectClassMetadata;
+    public static defaultProperties: Partial<SymbolElementProperties>;
+    public static defaultMappingValues: Partial<SymbolElementAttributes>;
+    public attributes: AttributeDescriptions;
+    public attributeNames: string[];
+    public initializeState(): void;
+    /** Get link anchors for this mark */
+    public getLinkAnchors(mode: "begin" | "end"): LinkAnchor.Description[];
+    public getGraphics(
+      cs: Graphics.CoordinateSystem,
+      offset: Point,
+      glyphIndex: number,
+      manager: ChartStateManager,
+      emphasize?: boolean
+    ): Graphics.Element;
+    public getDropZones(): DropZones.Description[];
+    public getHandles(): Handles.Description[];
+    public getBoundingBox(): BoundingBox.Description;
+    public getSnappingGuides(): SnappingGuides.Description[];
+    public getAttributePanelWidgets(
+      manager: Controls.WidgetManager
+    ): Controls.Widget[];
+    public getTemplateParameters(): TemplateParameters;
+  }
+}
+
 declare module "Charticulator/core/prototypes/plot_segments/axis" {
   import { CoordinateSystem, Group } from "Charticulator/core/graphics";
   import { Specification } from "Charticulator/core/index";
@@ -4692,7 +4868,9 @@ declare module "Charticulator/core/prototypes/plot_segments/axis" {
     public rangeMax: number;
     public valueToPosition: (value: any) => number;
     public oppositeSide: boolean;
-    public setStyle(style?: Specification.Types.AxisRenderingStyle): this;
+    public setStyle(
+      style?: Partial<Specification.Types.AxisRenderingStyle>
+    ): this;
     public setAxisDataBinding(
       data: Specification.Types.AxisDataBinding,
       rangeMin: number,
@@ -4710,17 +4888,23 @@ declare module "Charticulator/core/prototypes/plot_segments/axis" {
         value: any;
       }>
     ): void;
+    public getTickFormat(
+      tickFormat: string,
+      defaultFormat: (d: number) => string
+    ): (d: number) => string;
     public setLinearScale(
       domainMin: number,
       domainMax: number,
       rangeMin: number,
-      rangeMax: number
+      rangeMax: number,
+      tickFormat: string
     ): this;
     public setLogarithmicScale(
       domainMin: number,
       domainMax: number,
       rangeMin: number,
-      rangeMax: number
+      rangeMax: number,
+      tickFormat: string
     ): this;
     public setTemporalScale(
       domainMin: number,
@@ -4777,6 +4961,10 @@ declare module "Charticulator/core/prototypes/plot_segments/axis" {
     plotSegment: Specification.PlotSegment,
     property: string
   ): Specification.Template.Inference;
+  export function buildAxisProperties(
+    plotSegment: Specification.PlotSegment,
+    property: string
+  ): Specification.Template.Property[];
 }
 
 declare module "Charticulator/core/prototypes/plot_segments/line" {
@@ -4836,7 +5024,8 @@ declare module "Charticulator/core/prototypes/plot_segments/line" {
 
 declare module "Charticulator/core/prototypes/plot_segments/region_2d" {
   export {
-    Region2DAttributes
+    Region2DAttributes,
+    Region2DProperties
   } from "Charticulator/core/prototypes/plot_segments/region_2d/base";
   export {
     CartesianPlotSegment
@@ -4921,6 +5110,8 @@ declare module "Charticulator/core/prototypes/scales/scale" {
     extendScale?: boolean;
     /** Whether to reuse the existing range of the scale, applies to color and image */
     reuseRange?: boolean;
+    /** Whether to ensure the domainMin == 0 (for numeric scales) */
+    startWithZero?: "default" | "always" | "never";
   }
   export abstract class ScaleClass<
     PropertiesType extends AttributeMap = AttributeMap,
@@ -4962,7 +5153,7 @@ declare module "Charticulator/core/prototypes/controls" {
     labels?: string[];
   }
   export interface InputBooleanOptions {
-    type: "checkbox" | "highlight";
+    type: "checkbox" | "highlight" | "checkbox-fill-width";
     icon?: string;
     label?: string;
   }
@@ -5000,6 +5191,7 @@ declare module "Charticulator/core/prototypes/controls" {
     percentage?: boolean;
     showSlider?: boolean;
     sliderRange?: [number, number];
+    sliderFunction?: "linear" | "sqrt";
     showUpdown?: boolean;
     updownTick?: number;
     updownRange?: [number, number];
@@ -5037,6 +5229,13 @@ declare module "Charticulator/core/prototypes/controls" {
     allowReorder?: boolean;
     allowDelete?: boolean;
   }
+  export interface ScrollListOptions {
+    height?: number;
+    maxHeight?: number;
+  }
+  export interface InputExpressionOptions {
+    table?: string;
+  }
   export interface WidgetManager {
     mappingEditor(
       name: string,
@@ -5044,7 +5243,7 @@ declare module "Charticulator/core/prototypes/controls" {
       options: MappingEditorOptions
     ): Widget;
     inputNumber(property: Property, options?: InputNumberOptions): Widget;
-    inputText(property: Property): Widget;
+    inputText(property: Property, placeholder?: string): Widget;
     inputComboBox(
       property: Property,
       values: string[],
@@ -5053,7 +5252,10 @@ declare module "Charticulator/core/prototypes/controls" {
     inputFontFamily(property: Property): Widget;
     inputSelect(property: Property, options: InputSelectOptions): Widget;
     inputBoolean(property: Property, options: InputBooleanOptions): Widget;
-    inputExpression(property: Property): Widget;
+    inputExpression(
+      property: Property,
+      options?: InputExpressionOptions
+    ): Widget;
     inputImage(property: Property): Widget;
     inputColor(property: Property, options?: InputColorOptions): Widget;
     inputColorGradient(property: Property, inline?: boolean): Widget;
@@ -5077,11 +5279,12 @@ declare module "Charticulator/core/prototypes/controls" {
     text(text: string, align?: "left" | "center" | "right"): Widget;
     sep(): Widget;
     sectionHeader(title: string, widget?: Widget, options?: RowOptions): Widget;
-    row(title: string, widget?: Widget, options?: RowOptions): Widget;
+    row(title?: string, widget?: Widget, options?: RowOptions): Widget;
     detailsButton(...widgets: Widget[]): Widget;
     horizontal(cols: number[], ...widgets: Widget[]): Widget;
     vertical(...widgets: Widget[]): Widget;
     table(rows: Widget[][], options?: TableOptions): Widget;
+    scrollList(widgets: Widget[], options?: ScrollListOptions): Widget;
     filterEditor(options: FilterEditorOptions): Widget;
     groupByEditor(options: GroupByEditorOptions): Widget;
     nestedChartEditor(
@@ -5165,11 +5368,22 @@ declare module "Charticulator/core/solver/plugins/packing" {
     public cx: Variable;
     public cy: Variable;
     public points: Array<[Variable, Variable, number]>;
+    public xEnable: boolean;
+    public yEnable: boolean;
+    public getXYScale: () => {
+      x: number;
+      y: number;
+    };
     constructor(
       solver: ConstraintSolver,
       cx: Variable,
       cy: Variable,
-      points: Array<[Variable, Variable, number]>
+      points: Array<[Variable, Variable, number]>,
+      axisOnly?: "x" | "y",
+      getXYScale?: () => {
+        x: number;
+        y: number;
+      }
     );
     public apply(): boolean;
   }
@@ -5305,6 +5519,9 @@ declare module "Charticulator/core/specification/index" {
     properties: PropertiesType;
     /** Scale attribute mappings */
     mappings: Mappings;
+  }
+  export interface ExposableObject extends Object {
+    exposed: boolean;
   }
   /** Element: a single graphical mark, such as rect, circle, wedge; an element is driven by a group of data rows */
   export interface Element<
@@ -5444,6 +5661,30 @@ declare module "Charticulator/core/specification/index" {
   }
 }
 
+declare module "Charticulator/app/context_component" {
+  import * as React from "react";
+  import { AppStore } from "Charticulator/app/stores";
+  import { Action } from "Charticulator/app/actions/actions";
+  export interface MainContext {
+    store: AppStore;
+  }
+  export let MainContextTypes: {
+    store: (props: any, propName: string, componentName: string) => Error;
+  };
+  export class ContextedComponent<TProps, TState> extends React.Component<
+    TProps,
+    TState
+  > {
+    public context: MainContext;
+    constructor(props: TProps, context: MainContext);
+    public static contextTypes: {
+      store: (props: any, propName: string, componentName: string) => Error;
+    };
+    public dispatch(action: Action): void;
+    public readonly store: AppStore;
+  }
+}
+
 declare module "Charticulator/app/backend/abstract" {
   export interface ItemMetadata {
     [name: string]: string | number | boolean;
@@ -5484,31 +5725,76 @@ declare module "Charticulator/app/backend/abstract" {
   }
 }
 
-declare module "Charticulator/app/context_component" {
-  import * as React from "react";
-  import { MainStore } from "Charticulator/app/stores/main_store";
-  import { Action } from "Charticulator/app/actions/actions";
-  import { ChartStore, DatasetStore } from "Charticulator/app/stores";
-  export interface MainContext {
-    store: MainStore;
+declare module "Charticulator/app/stores/action_handlers" {
+  import { Actions } from "Charticulator/app/actions";
+  import { AppStore } from "Charticulator/app/stores/app_store";
+  import { ActionHandlerRegistry } from "Charticulator/app/stores/action_handlers/registry";
+  export function registerActionHandlers(
+    REG: ActionHandlerRegistry<AppStore, Actions.Action>
+  ): void;
+  export { ActionHandlerRegistry };
+}
+
+declare module "Charticulator/app/stores/history_manager" {
+  export class HistoryManager<StateType> {
+    public statesBefore: StateType[];
+    public statesAfter: StateType[];
+    public addState(state: StateType): void;
+    public undo(currentState: StateType): StateType;
+    public redo(currentState: StateType): StateType;
+    public clear(): void;
   }
-  export let MainContextTypes: {
-    store: (props: any, propName: string, componentName: string) => Error;
-  };
-  export class ContextedComponent<TProps, TState> extends React.Component<
-    TProps,
-    TState
-  > {
-    public context: MainContext;
-    constructor(props: TProps, context: MainContext);
-    public static contextTypes: {
-      store: (props: any, propName: string, componentName: string) => Error;
-    };
-    public dispatch(action: Action): void;
-    public readonly mainStore: MainStore;
-    public readonly chartStore: ChartStore;
-    public readonly datasetStore: DatasetStore;
+}
+
+declare module "Charticulator/core/prototypes/marks/emphasis" {
+  import { Style } from "Charticulator/core/graphics";
+  import { MarkClass } from "Charticulator/core/prototypes/marks/mark";
+  import { ObjectClass } from "Charticulator/core/prototypes/object";
+  import {
+    Object,
+    ObjectState,
+    EmphasisMethod,
+    AttributeMap
+  } from "Charticulator/core/specification";
+  /**
+   * Represents a mark class that is emphasizable
+   */
+  export abstract class EmphasizableMarkClass<
+    PropertiesType extends AttributeMap = AttributeMap,
+    AttributesType extends AttributeMap = AttributeMap
+  > extends MarkClass<PropertiesType, AttributesType> {
+    constructor(
+      parent: ObjectClass,
+      object: Object<PropertiesType>,
+      state: ObjectState<AttributesType>,
+      defaultMethod?: EmphasisMethod
+    );
+    /**
+     * Generates styling info for styling emphasized marks
+     * @param emphasize If true, emphasis will be applied.
+     */
+    protected generateEmphasisStyle(emphasize?: boolean): Style;
   }
+}
+
+declare module "Charticulator/core/prototypes/marks/symbol.attrs" {
+  import { AttributeDescriptions } from "Charticulator/core/prototypes/object";
+  import { Color } from "Charticulator/core/common";
+  import { AttributeMap } from "Charticulator/core/specification/index";
+  export const symbolTypes: string[];
+  export const symbolAttributes: AttributeDescriptions;
+  export interface SymbolElementAttributes extends AttributeMap {
+    x: number;
+    y: number;
+    size: number;
+    fill: Color;
+    stroke: Color;
+    strokeWidth: number;
+    opacity: number;
+    visible: boolean;
+    symbol: string;
+  }
+  export interface SymbolElementProperties extends AttributeMap {}
 }
 
 declare module "Charticulator/core/index" {
@@ -5544,7 +5830,7 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/base" {
   import { DataflowTable } from "Charticulator/core/prototypes/dataflow";
   import { PlotSegmentClass } from "Charticulator/core/prototypes/plot_segments/plot_segment";
   export interface Region2DSublayoutOptions extends Specification.AttributeMap {
-    type: "dodge-x" | "dodge-y" | "grid" | "packing";
+    type: "overlap" | "dodge-x" | "dodge-y" | "grid" | "packing";
     /** Sublayout alignment (for dodge and grid) */
     align: {
       x: "start" | "middle" | "end";
@@ -5620,9 +5906,15 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/base" {
       gridDirectionY: string;
       packing: string;
       packingIcon: string;
+      overlap: string;
+      overlapIcon: string;
     };
     xAxisPrePostGap: boolean;
     yAxisPrePostGap: boolean;
+    getXYScale?(): {
+      x: number;
+      y: number;
+    };
   }
   export class CrossFitter {
     constructor(solver: ConstraintSolver, mode: "min" | "max");
@@ -5648,6 +5940,11 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/base" {
     public y1: Variable;
     public x2: Variable;
     public y2: Variable;
+  }
+  export interface SublayoutContext {
+    mode: "default" | "x-only" | "y-only" | "disabled";
+    xAxisPrePostGap?: boolean;
+    yAxisPrePostGap?: boolean;
   }
   export class Region2DConstraintBuilder {
     public plotSegment: PlotSegmentClass<
@@ -5688,16 +5985,21 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/base" {
     /** Map elements according to numerical/categorical mapping */
     public numericalMapping(axis: "x" | "y"): void;
     public groupMarksByCategoricalMapping(axis: "x" | "y" | "xy"): number[][];
-    public categoricalMapping(axis: "x" | "y" | "xy", sublayout: boolean): void;
+    public categoricalMapping(
+      axis: "x" | "y" | "xy",
+      sublayoutContext: SublayoutContext
+    ): void;
     public categoricalHandles(
       axis: "x" | "y" | "xy",
       sublayout: boolean
     ): Region2DHandleDescription[];
     public stacking(axis: "x" | "y"): void;
-    public alignment(axis: "x" | "y", mode: "start" | "middle" | "end"): void;
-    public fitting(axis: "x" | "y"): void;
     public fitGroups(groups: SublayoutGroup[], axis: "x" | "y" | "xy"): void;
-    public sublayout(groups: SublayoutGroup[]): void;
+    public applySublayout(
+      groups: SublayoutGroup[],
+      axis: "x" | "y" | "xy",
+      context: SublayoutContext
+    ): void;
     public sublayoutDodging(
       groups: SublayoutGroup[],
       direction: "x" | "y",
@@ -5719,12 +6021,22 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/base" {
         y1: number;
         x2: number;
         y2: number;
-      }>
+      }>,
+      enablePrePostGapX: boolean,
+      enablePrePostGapY: boolean
     ): Region2DHandleDescription[];
-    public sublayoutPacking(groups: SublayoutGroup[]): void;
+    public sublayoutPacking(
+      groups: SublayoutGroup[],
+      axisOnly?: "x" | "y"
+    ): void;
     public getHandles(): Region2DHandleDescription[];
     public build(): void;
-    public isSublayoutAppliable(): boolean;
+    public applicableSublayoutOptions(): Array<{
+      value: string;
+      label: string;
+      icon: string;
+    }>;
+    public isSublayoutApplicable(): boolean;
     public buildSublayoutWidgets(m: Controls.WidgetManager): any[];
     public buildAxisWidgets(
       m: Controls.WidgetManager,
@@ -6002,5 +6314,28 @@ declare module "Charticulator/core/prototypes/plot_segments/region_2d/curve" {
       manager: Controls.WidgetManager
     ): Controls.Widget[];
     public getTemplateParameters(): TemplateParameters;
+  }
+}
+
+declare module "Charticulator/app/stores/action_handlers/registry" {
+  /** A registry of action handlers */
+  export class ActionHandlerRegistry<ThisType, BaseAction> {
+    /**
+     * Register an action handler function
+     * @param constructor the action constructor
+     * @param handler the action handler
+     */
+    public add<ActionType extends BaseAction>(
+      constructor: {
+        new (...args: any[]): ActionType;
+      },
+      handler: (this: ThisType, action: ActionType) => void
+    ): void;
+    /**
+     * Find and call the handler(s) for the action
+     * @param thisArg the this argument for the handler
+     * @param action the action to pass to
+     */
+    public handleAction(thisArg: ThisType, action: BaseAction): void;
   }
 }
