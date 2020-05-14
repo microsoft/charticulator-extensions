@@ -617,7 +617,6 @@ namespace powerbi.extensibility.visual {
             const visualHasTooltipData = tooltipsTableColumns.find(
               column => column.source.roles.powerBITooltips
             )
-            debugger;
             if (this.host.tooltipService.enabled() && powerBITooltips && visualHasTooltipData) {
               const service = this.host.tooltipService;
 
@@ -626,7 +625,6 @@ namespace powerbi.extensibility.visual {
                   .map(i => selectionIDs[i])
                   .filter(x => x != null);
 
-                debugger;
                 const info = {
                   coordinates: [this.currentX, this.currentY],
                   isTouchEvent: false,
@@ -808,10 +806,8 @@ namespace powerbi.extensibility.visual {
           }
         }
       }
-      switch (objectName) {
-        case objectName:
-          objectEnumeration.push({ objectName, properties, selector: null });
-      }
+
+      objectEnumeration.push({ objectName, properties, selector: null });
       return objectEnumeration;
     }
   }
