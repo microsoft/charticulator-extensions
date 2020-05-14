@@ -39,6 +39,8 @@ namespace powerbi.extensibility.visual {
     return a1.every(i => s2.has(i)) && a2.every(i => s1.has(i));
   }
 
+  const powerBITooltipsTablename = "powerBITooltips";
+
   class CharticulatorPowerBIVisual {
     protected host: IVisualHost;
     protected selectionManager: ISelectionManager;
@@ -153,7 +155,7 @@ namespace powerbi.extensibility.visual {
     private getTooltipsTable(
       template: CharticulatorContainer.Specification.Template.ChartTemplate
     ): CharticulatorContainer.Specification.Template.Table {
-      return template.tables.find(table => table.name === "powerBITooltips");
+      return template.tables.find(table => table.name === powerBITooltipsTablename);
     }
 
     public getUserColumnName(options: VisualUpdateOptions, columnName: string) {
@@ -369,7 +371,7 @@ namespace powerbi.extensibility.visual {
             },
           tooltips &&
             tooltipsTableColumns && {
-              name: "powerBITooltips",
+              name: powerBITooltipsTablename,
               columns: tooltipsTable ? tooltipsTable.columns : null,
               rows:
                 categories[0].values
@@ -524,7 +526,7 @@ namespace powerbi.extensibility.visual {
             if (tooltips) {
               this.chartTemplate.assignTable(
                 tooltipsTable.name,
-                "powerBITooltips"
+                powerBITooltipsTablename
               );
               for (const column of tooltips) {
                 this.chartTemplate.assignColumn(
@@ -633,7 +635,7 @@ namespace powerbi.extensibility.visual {
               );
             }
             const powerBITooltips = dataset.tables.find(
-              table => table.name === "powerBITooltips"
+              table => table.name === powerBITooltipsTablename
             );
             const tooltipsTableColumns = options.dataViews[0].categorical.categories;
             const visualHasTooltipData = tooltipsTableColumns.find(
