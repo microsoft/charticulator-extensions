@@ -493,7 +493,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       content: {
         js: [resources.libraries, containerScript, visual].join("\n"),
         css: "",
-        iconBase64: properties.visualIcon || resources.icon
+        iconBase64: properties.visualIcon && properties.visualIcon.src || resources.icon
       }
     };
 
