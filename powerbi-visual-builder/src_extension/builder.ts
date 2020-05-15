@@ -79,6 +79,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   public getProperties() {
     return [
       {
+        displayName: "Enable drill-down",
+        name: "enableDrillDown",
+        type: "boolean",
+        default: false
+      },
+      {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
@@ -280,6 +286,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     };
 
     const dataViewMappingsConditions: { [name: string]: any } = {};
+
+    if (properties.enableDrillDown) {
+      dataViewMappingsConditions.category = {
+        max: 1
+      };
+    }
+
     const objectProperties: { [name: string]: any } = {};
 
     // TODO: for now, we assume there's only one table
@@ -392,8 +405,19 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           default: true,
           canvas: true
         }
+      },
+      drilldown: {
+        roles: ["category"]
       }
     };
+
+    if (properties.drillDown) {
+      capabilities.drilldown = {
+        roles: [
+          ...columns.map(column => column.powerBIName)
+        ]
+      };
+    }
 
     const linksTable = this.hasAnchoredLinksAndTable(template);
     if (linksTable) {
@@ -445,7 +469,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualDisplayName: config.displayName,
       visualVersion: config.version,
       apiVersion,
-      templateData: template
+      templateData: template,
+      enableDrillDown: properties.enableDrillDown
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,

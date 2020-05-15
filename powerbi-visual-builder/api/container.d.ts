@@ -80,6 +80,9 @@ declare namespace CharticulatorContainer {
     public addSelectionListener(
       listener: (table: string, rowIndices: number[]) => void
     ): EventSubscription;
+    public addContextMenuListener(
+      listener: (table: string, rowIndices: number[], modifers: any) => void
+    ): EventSubscription;
     /** Listen to mouse enter event */
     public addMouseEnterListener(
       listener: (table: string, rowIndices: number[]) => void
