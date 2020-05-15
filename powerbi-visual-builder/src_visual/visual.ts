@@ -44,7 +44,6 @@ namespace powerbi.extensibility.visual {
     protected selectionManager: ISelectionManager;
 
     protected template: CharticulatorContainer.Specification.Template.ChartTemplate;
-    protected enableTooltip: boolean;
 
     protected container: HTMLElement;
     protected divChart: HTMLDivElement;
@@ -62,7 +61,6 @@ namespace powerbi.extensibility.visual {
       try {
         this.selectionManager = options.host.createSelectionManager();
         this.template = "<%= templateData %>" as any;
-        this.enableTooltip = "<%= enableTooltip %>" as any;
         this.container = options.element;
         this.divChart = document.createElement("div");
         this.divChart.style.cursor = "default";
@@ -74,17 +72,15 @@ namespace powerbi.extensibility.visual {
         );
         this.properties = this.getProperties(null);
 
-        if (this.enableTooltip) {
-          // Handles mouse move events for displaying tooltips.
-          window.addEventListener("mousemove", e => {
-            const bbox = this.container.getBoundingClientRect();
-            this.currentX = e.pageX - bbox.left;
-            this.currentY = e.pageY - bbox.top;
-            if (this.handleMouseMove) {
-              this.handleMouseMove();
-            }
-          });
-        }
+        // Handles mouse move events for displaying tooltips.
+        window.addEventListener("mousemove", e => {
+          const bbox = this.container.getBoundingClientRect();
+          this.currentX = e.pageX - bbox.left;
+          this.currentY = e.pageY - bbox.top;
+          if (this.handleMouseMove) {
+            this.handleMouseMove();
+          }
+        });
       } catch (e) {
         console.log(e);
       }
@@ -97,12 +93,12 @@ namespace powerbi.extensibility.visual {
 
     private mapColumns(
       powerBIColumn: DataViewValueColumn | DataViewCategoryColumn,
-      column: PowerBIColumn
+      type: CharticulatorContainer.Specification.DataType
     ) {
       return {
         values: CharticulatorContainer.Dataset.convertColumnType(
           powerBIColumn.values.map(x => (x == null ? null : x.valueOf())),
-          column.type
+          type
         ),
         highlights: powerBIColumn.values.map((value, i) => {
           return (powerBIColumn as DataViewValueColumn).highlights &&
@@ -152,6 +148,19 @@ namespace powerbi.extensibility.visual {
       }
     }
 
+    private getTooltipsTable(
+      template: CharticulatorContainer.Specification.Template.ChartTemplate
+    ): CharticulatorContainer.Specification.Template.Table {
+      return template.tables.find(table => table.name === "powerBITooltips");
+    }
+
+    public getUserColumnName(options: VisualUpdateOptions, columnName: string) {
+      const column = options.dataViews[0].metadata.columns.find(
+        column => column.roles[columnName]
+      );
+      return column && column.displayName;
+    }
+
     /** Get a Charticulator dataset from the options */
     protected getDataset(
       options: VisualUpdateOptions
@@ -192,7 +201,7 @@ namespace powerbi.extensibility.visual {
             if (powerBIColumn.source.roles[chartColumn.powerBIName]) {
               columnToValues[chartColumn.powerBIName] = this.mapColumns(
                 powerBIColumn,
-                chartColumn
+                chartColumn.type
               );
               found = true;
             }
@@ -205,7 +214,7 @@ namespace powerbi.extensibility.visual {
           ) {
             columnToValues[chartColumn.powerBIName] = this.mapColumns(
               powerBIColumn,
-              chartColumn
+              chartColumn.type
             );
             found = true;
           }
@@ -225,11 +234,33 @@ namespace powerbi.extensibility.visual {
             if (powerBIColumn.source.roles[chartColumn.powerBIName]) {
               columnToValues[
                 chartColumn.powerBIName || chartColumn.name
-              ] = this.mapColumns(powerBIColumn, chartColumn);
+              ] = this.mapColumns(powerBIColumn, chartColumn.type);
             }
           }
         }
       }
+
+      const tooltipsTable = this.getTooltipsTable(this.template);
+      const tooltipsTableColumns = options.dataViews[0].categorical.categories.filter(cat => cat.source.roles.powerBITooltips)
+
+      if (tooltipsTable && tooltipsTableColumns) {
+        const type = tooltipsTable.columns.length && tooltipsTable.columns[0].type || CharticulatorContainer.Specification.DataType.String;
+        const metadata = tooltipsTable.columns.length && tooltipsTable.columns[0].metadata || {
+          kind: "categorical"
+        };
+        tooltipsTable.columns = [];
+        tooltipsTableColumns.forEach((pbiColumn) => {
+          columnToValues[pbiColumn.source.displayName] = this.mapColumns(pbiColumn, type);
+          tooltipsTable.columns.push({
+            displayName: pbiColumn.source.displayName,
+            name: pbiColumn.source.displayName,
+            metadata,
+            type
+          });
+        });
+      }
+      const tooltips =
+      tooltipsTable && (tooltipsTable.columns as PowerBIColumn[]);
 
       const rowInfo = new Map<
         CharticulatorContainer.Dataset.Row,
@@ -285,9 +316,13 @@ namespace powerbi.extensibility.visual {
         name: "Dataset",
         tables: [
           {
-            name: "default",
+            name: defaultTable.name,
             columns: columns.map(column => {
               return {
+                displayName: this.getUserColumnName(
+                  options,
+                  column.powerBIName
+                ),
                 name: column.powerBIName,
                 type: column.type,
                 metadata: column.metadata
@@ -297,11 +332,15 @@ namespace powerbi.extensibility.visual {
           },
           chartLinks &&
             powerBILinkColumns && {
-              name: "links",
+              name: linksTable.name,
               columns:
                 powerBILinkColumns.length >= 2
                   ? chartLinks.map(column => {
                       return {
+                        displayName: this.getUserColumnName(
+                          options,
+                          column.powerBIName
+                        ),
                         name: column.powerBIName,
                         type: column.type,
                         metadata: column.metadata
@@ -309,8 +348,6 @@ namespace powerbi.extensibility.visual {
                     })
                   : null,
               rows:
-                chartLinks &&
-                powerBILinkColumns &&
                 categories[0].values
                   .map((source, index) => {
                     const obj: CharticulatorContainer.Dataset.Row = {
@@ -327,6 +364,27 @@ namespace powerbi.extensibility.visual {
                     return obj;
                   })
                   .filter(row => row)
+            },
+          tooltips &&
+            tooltipsTableColumns && {
+              name: "powerBITooltips",
+              columns: tooltipsTable ? tooltipsTable.columns : null,
+              rows:
+                categories[0].values
+                  .map((source, index) => {
+                    const obj = {
+                        _id: index.toString()
+                    };
+                    for (const column of tooltips) {
+                        const valueColumn = columnToValues[column.powerBIName || column.name];
+                        if (valueColumn) {
+                            const value = valueColumn.values[index];
+                            obj[column.powerBIName || column.name] = value;
+                        }
+                    }
+                    return obj;
+                })
+                .filter(row => row)
             }
         ].filter(table => table && table.columns)
       };
@@ -405,6 +463,7 @@ namespace powerbi.extensibility.visual {
         this.resize(options.viewport.width, options.viewport.height);
 
         const getDatasetResult = this.getDataset(options);
+
         if (getDatasetResult == null) {
           // If dataset is null, show a warning message
           this.divChart.innerHTML = `
@@ -430,7 +489,10 @@ namespace powerbi.extensibility.visual {
 
             const defaultTable = this.getDefaultTable(this.template);
             const columns = defaultTable.columns as PowerBIColumn[];
-            this.chartTemplate.assignTable(defaultTable.name, "default");
+            this.chartTemplate.assignTable(
+              defaultTable.name,
+              defaultTable.name
+            );
             for (const column of columns) {
               this.chartTemplate.assignColumn(
                 defaultTable.name,
@@ -443,10 +505,28 @@ namespace powerbi.extensibility.visual {
             const linksTable = this.getLinksTable(this.template); // todo save table name in property
             const links = linksTable && (linksTable.columns as PowerBIColumn[]);
             if (links) {
-              this.chartTemplate.assignTable(linksTable.name, "links");
+              this.chartTemplate.assignTable(linksTable.name, linksTable.name);
               for (const column of links) {
                 this.chartTemplate.assignColumn(
                   linksTable.name,
+                  column.name,
+                  column.powerBIName
+                );
+              }
+            }
+
+            // tooltips table
+            const tooltipsTable = this.getTooltipsTable(this.template); // todo save table name in property
+            const tooltips =
+              tooltipsTable && (tooltipsTable.columns as PowerBIColumn[]);
+            if (tooltips) {
+              this.chartTemplate.assignTable(
+                tooltipsTable.name,
+                "powerBITooltips"
+              );
+              for (const column of tooltips) {
+                this.chartTemplate.assignColumn(
+                  tooltipsTable.name,
                   column.name,
                   column.powerBIName
                 );
@@ -530,18 +610,28 @@ namespace powerbi.extensibility.visual {
                 this.selectionManager.clear();
               }
             });
-            if (this.enableTooltip && this.host.tooltipService.enabled()) {
+            const powerBITooltips = dataset.tables.find(
+              table => table.name === "powerBITooltips"
+            );
+            const tooltipsTableColumns = options.dataViews[0].categorical.categories;
+            const visualHasTooltipData = tooltipsTableColumns.find(
+              column => column.source.roles.powerBITooltips
+            )
+            if (this.host.tooltipService.enabled() && powerBITooltips && visualHasTooltipData) {
               const service = this.host.tooltipService;
 
               this.chartContainer.addMouseEnterListener((table, rowIndices) => {
                 const ids = rowIndices
                   .map(i => selectionIDs[i])
                   .filter(x => x != null);
+
                 const info = {
                   coordinates: [this.currentX, this.currentY],
                   isTouchEvent: false,
                   dataItems: Array.prototype.concat(
                     ...rowIndices.map(idx => {
+                      const tooltiprow =
+                        powerBITooltips && powerBITooltips.rows[idx];
                       const row = dataset.tables[0].rows[idx];
                       return Object.keys(row)
                         .filter(x => x != "_id")
@@ -579,7 +669,23 @@ namespace powerbi.extensibility.visual {
                             header,
                             value
                           };
-                        });
+                        })
+                        // append custom tooltip rows
+                        .concat(
+                          Object.keys(tooltiprow)
+                            // excule _id column and all columns used by default
+                            .filter(x => x != "_id" && dataset.tables[0].columns.find(col => col.name == x) == undefined)
+                            .map(key => {
+                              const header = getDatasetResult.rowInfo.get(row)
+                                .granularity;
+                              const value = tooltiprow[key];
+                              return {
+                                displayName: key,
+                                header,
+                                value
+                              };
+                            })
+                        );
                     })
                   ),
                   identities: ids
@@ -700,10 +806,8 @@ namespace powerbi.extensibility.visual {
           }
         }
       }
-      switch (objectName) {
-        case objectName:
-          objectEnumeration.push({ objectName, properties, selector: null });
-      }
+
+      objectEnumeration.push({ objectName, properties, selector: null });
       return objectEnumeration;
     }
   }

@@ -79,12 +79,6 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   public getProperties() {
     return [
       {
-        displayName: "Enable Tooltip",
-        name: "enableTooltip",
-        type: "boolean",
-        default: true
-      },
-      {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
@@ -341,7 +335,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             name: column.powerBIName,
             kind: "GroupingOrMeasure"
           } as DataRole;
-        })
+        }),
+        {
+          displayName: "Tooltips",
+          name: "powerBITooltips",
+          kind: "GroupingOrMeasure"
+        }
       ],
       dataViewMappings: [
         {
@@ -353,7 +352,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
                   return {
                     bind: { to: column.powerBIName }
                   };
-                })
+                }),
+                {
+                  bind: { to: "powerBITooltips" }
+                }
               ],
               dataReductionAlgorithm: {
                 top: {
@@ -362,11 +364,16 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
               }
             },
             values: {
-              select: columns.map(column => {
-                return {
-                  bind: { to: column.powerBIName }
-                };
-              })
+              select: [
+                ...columns.map(column => {
+                  return {
+                    bind: { to: column.powerBIName }
+                  };
+                }),
+                {
+                  bind: { to: "powerBITooltips" }
+                }
+              ]
             }
           }
         }
@@ -379,7 +386,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
       // Power BI will give us a set of highlight values instead of filtering the data.
-      supportsHighlight: true
+      supportsHighlight: true,
+      tooltips: {
+        supportedTypes: {
+          default: true,
+          canvas: true
+        }
+      }
     };
 
     const linksTable = this.hasAnchoredLinksAndTable(template);
@@ -410,6 +423,20 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       });
     }
 
+    template.tables.push({
+      columns: [
+        {
+          displayName: "Tooltips",
+          name: "powerBITooltips",
+          type: "string" as any,
+          metadata: {
+            kind: "categorical" as any
+          }
+        }
+      ],
+      name: "powerBITooltips"
+    });
+
     const apiVersion = "2.1.0";
 
     const jsConfig: { [name: string]: any } = {
@@ -418,8 +445,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualDisplayName: config.displayName,
       visualVersion: config.version,
       apiVersion,
-      templateData: template,
-      enableTooltip: properties.enableTooltip
+      templateData: template
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
