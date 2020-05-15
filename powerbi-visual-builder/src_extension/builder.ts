@@ -28,10 +28,12 @@ import {
   DataRole,
   Objects
 } from "../api/v2.1.0/schema.capabilities";
+import { AttributeMap } from "Charticulator/core/specification";
 import {
   LinksProperties,
   LinksObject
 } from "Charticulator/core/prototypes/links";
+import { boolean } from "Charticulator/core/expression";
 
 interface Resources {
   icon: string;
@@ -105,6 +107,15 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         name: "authorEmail",
         type: "string",
         default: "anonymous@example.com"
+      },
+      {
+        displayName: "Icon",
+        name: "visualIcon",
+        type: "file",
+        default: {
+          src: resources.icon,
+          name: "default.png"
+        }
       }
     ];
   }
@@ -431,7 +442,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       content: {
         js: [resources.libraries, containerScript, visual].join("\n"),
         css: "",
-        iconBase64: resources.icon
+        iconBase64: properties.visualIcon || resources.icon
       }
     };
 
