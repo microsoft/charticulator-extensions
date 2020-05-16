@@ -108,7 +108,7 @@ namespace powerbi.extensibility.visual {
           return (powerBIColumn as DataViewValueColumn).highlights &&
             (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
             value != null
-            ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() ==
+            ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() <=
                 value.valueOf()
             : false;
         })
@@ -278,7 +278,7 @@ namespace powerbi.extensibility.visual {
           const obj: CharticulatorContainer.Dataset.Row = {
             _id: /*"ID" +*/ i.toString()
           };
-          let allHighlighted = true;
+          let rowHasHighlightedColumn = false;
           let rowHash = "";
           for (const column of columns) {
             const valueColumn = columnToValues[column.powerBIName];
@@ -289,8 +289,9 @@ namespace powerbi.extensibility.visual {
             }
             obj[column.powerBIName] = value;
             rowHash += value.toString();
-            if (!valueColumn.highlights[i]) {
-              allHighlighted = false;
+            // if one value column has highlights
+            if (valueColumn.highlights[i]) {
+              rowHasHighlightedColumn = true;
             }
           }
 
@@ -305,7 +306,7 @@ namespace powerbi.extensibility.visual {
           if (!uniqueRows.has(rowHash)) {
             uniqueRows.add(rowHash);
             rowInfo.set(obj, {
-              highlight: allHighlighted,
+              highlight: rowHasHighlightedColumn,
               index: i,
               granularity
             });
@@ -766,7 +767,8 @@ namespace powerbi.extensibility.visual {
                 }
               }
               if (indices.length > 0) {
-                this.chartContainer.setSelection("default", indices);
+                const defaultTable = this.getDefaultTable(this.template);
+                this.chartContainer.setSelection(defaultTable.name, indices);
               } else {
                 this.chartContainer.clearSelection();
               }
