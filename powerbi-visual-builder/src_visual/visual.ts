@@ -273,13 +273,14 @@ namespace powerbi.extensibility.visual {
 
       const uniqueRows = new Set<string>();
 
+      const rowIdentity = categories.find(category => category.source.roles.id);
       const rows = categories[0].values
         .map((categoryValue, i) => {
           const obj: CharticulatorContainer.Dataset.Row = {
             _id: /*"ID" +*/ i.toString()
           };
           let rowHasHighlightedColumn = false;
-          let rowHash = "";
+          let rowHash = rowIdentity ? rowIdentity.values[i].toString() : "";
           for (const column of columns) {
             const valueColumn = columnToValues[column.powerBIName];
             const value = valueColumn.values[i];

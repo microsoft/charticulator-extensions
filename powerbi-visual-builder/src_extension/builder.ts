@@ -342,6 +342,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
+        {
+          displayName: "Row ID/Granularity (Level of Detail)",
+          name: "id",
+          kind: "Grouping"
+        },
         ...columns.map(column => {
           return {
             displayName: column.displayName,
@@ -361,6 +366,9 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           categorical: {
             categories: {
               select: [
+                {
+                  bind: { to: "id" }
+                },
                 ...columns.map(column => {
                   return {
                     bind: { to: column.powerBIName }
