@@ -343,7 +343,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     const capabilities: SchemaCapabilities = {
       dataRoles: [
         {
-          displayName: "Row ID/Granularity (Level of Detail)",
+          displayName: "Primary Key",
           name: "id",
           kind: "Grouping"
         },
