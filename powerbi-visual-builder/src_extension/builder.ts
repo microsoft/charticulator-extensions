@@ -344,7 +344,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       dataRoles: [
         {
           displayName: "Primary Key",
-          name: "id",
+          name: "primarykey",
           kind: "Grouping"
         },
         ...columns.map(column => {
@@ -367,7 +367,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             categories: {
               select: [
                 {
-                  bind: { to: "id" }
+                  bind: { to: "primarykey" }
                 },
                 ...columns.map(column => {
                   return {

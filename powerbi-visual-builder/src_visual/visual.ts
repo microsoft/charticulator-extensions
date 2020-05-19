@@ -273,7 +273,7 @@ namespace powerbi.extensibility.visual {
 
       const uniqueRows = new Set<string>();
 
-      const rowIdentity = categories.find(category => category.source.roles.id);
+      const rowIdentity = categories.find(category => category.source.roles.primarykey);
       const rows = categories[0].values
         .map((categoryValue, i) => {
           const obj: CharticulatorContainer.Dataset.Row = {
