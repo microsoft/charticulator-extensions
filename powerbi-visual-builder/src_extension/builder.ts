@@ -34,6 +34,7 @@ import {
   LinksObject
 } from "Charticulator/core/prototypes/links";
 import { boolean } from "Charticulator/core/expression";
+import { PropertyField } from "Charticulator/core/specification/template";
 
 interface Resources {
   icon: string;
@@ -165,6 +166,9 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       case "fontSize": {
         return "Font size";
       }
+      case "sublayout.order": {
+        return "Sublayout order";
+      }
       default:
         let words = name.replace(/([a-z])([A-Z])/g, "$1 $2").split(" ");
         words = words.map(w => w.toLowerCase());
@@ -235,6 +239,32 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           }
         }
         break;
+      }
+      case "object": {
+        if (property.target.property && (property.target.property as any).property === "sublayout") {
+          if (property.target.property && (property.target.property as any).field === "order") {
+            const object = Charticulator.Core.Prototypes.findObjectById(
+              this.template.specification,
+              property.objectID
+            );
+            const isPlotSegment = Charticulator.Core.Prototypes.isType(object.classID, "plot-segment");
+
+            if (isPlotSegment) {
+              const table = (object as any).table; // TODO fix to Charticulator.Core.Prototypes.PlotSegments
+              const columns = this.template.tables.find(t => t.name === table).columns;
+
+              type = {
+                enumeration: columns.map(col => {
+                  return {
+                    displayName: col.name,
+                    value: `first(${col.name})`
+                  };
+                })
+              };
+              break;
+            }
+          }
+        }
       }
       default: {
         type = { text: true };
