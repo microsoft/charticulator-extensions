@@ -247,7 +247,7 @@ namespace powerbi.extensibility.visual {
       const tooltipsTable = this.getTooltipsTable(this.template);
       const tooltipsTableColumns = [
         ...options.dataViews[0].categorical.categories.filter(cat => cat.source.roles.powerBITooltips),
-        ...options.dataViews[0].categorical.values.filter(cat => cat.source.roles.powerBITooltips)
+        ...(options.dataViews[0].categorical.values ? options.dataViews[0].categorical.values.filter(cat => cat.source.roles.powerBITooltips) : [])
       ]
 
       if (tooltipsTable && tooltipsTableColumns) {
