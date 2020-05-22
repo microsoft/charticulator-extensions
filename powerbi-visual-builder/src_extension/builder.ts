@@ -238,6 +238,19 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             type = { text: true };
           }
         }
+        if (typeof property.target.property === "object" &&
+          (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
+          property.target.property.field === "categories"
+          ) {
+          type = {
+            enumeration: ["ascending", "descending"].map(enumeration => {
+              return {
+                displayName: enumeration[0].toLocaleUpperCase() + enumeration.slice(1),
+                value: enumeration
+              };
+            })
+          };
+        }
         break;
       }
       case "object": {

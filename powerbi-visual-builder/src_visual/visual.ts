@@ -115,6 +115,10 @@ namespace powerbi.extensibility.visual {
       };
     }
 
+    private deepClone<T>(obj: T): T {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
     private getDefaultTable(
       template: CharticulatorContainer.Specification.Template.ChartTemplate
     ): CharticulatorContainer.Specification.Template.Table {
@@ -552,12 +556,38 @@ namespace powerbi.extensibility.visual {
                 continue;
               }
               if (property.target.property) {
-                CharticulatorContainer.ChartTemplate.SetChartProperty(
-                  chart,
-                  property.objectID,
-                  property.target.property,
-                  this.properties[property.powerBIName]
-                );
+                if (typeof property.target.property === "object" &&
+                  (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
+                  property.target.property.field === "categories"
+                  ) {
+                    const direction = this.properties[property.powerBIName];
+                    let values = CharticulatorContainer.ChartTemplate.GetChartProperty(
+                      chart,
+                      property.objectID,
+                      {
+                        property: property.target.property.property,
+                        field: property.target.property.field
+                      }
+                    );
+                    values = this.deepClone(values);
+                    values = (values as string[]).sort();
+                    if (direction === "descending") {
+                      values = (values as string[]).reverse();
+                    }
+                    CharticulatorContainer.ChartTemplate.SetChartProperty(
+                      chart,
+                      property.objectID,
+                      property.target.property,
+                      values
+                    );                  
+                } else {
+                  CharticulatorContainer.ChartTemplate.SetChartProperty(
+                    chart,
+                    property.objectID,
+                    property.target.property,
+                    this.properties[property.powerBIName]
+                  );
+                }
               } else {
                 CharticulatorContainer.ChartTemplate.SetChartAttributeMapping(
                   chart,
@@ -729,11 +759,32 @@ namespace powerbi.extensibility.visual {
                 continue;
               }
               if (property.target.property) {
-                this.chartContainer.setProperty(
-                  property.objectID,
-                  property.target.property,
-                  this.properties[property.powerBIName]
-                );
+                if (typeof property.target.property === "object" &&
+                  (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
+                  property.target.property.field === "categories"
+                  ) {
+                    const direction = this.properties[property.powerBIName];
+                    let values = this.chartContainer.getProperty(property.objectID, {
+                      property: property.target.property.property,
+                      field: property.target.property.field
+                    });
+                    values = this.deepClone(values);
+                    values = (values as string[]).sort();
+                    if (direction === "descending") {
+                      values = (values as string[]).reverse();
+                    }
+                    this.chartContainer.setProperty(
+                      property.objectID,
+                      property.target.property,
+                      values
+                    );                  
+                } else {
+                  this.chartContainer.setProperty(
+                    property.objectID,
+                    property.target.property,
+                    this.properties[property.powerBIName]
+                  );
+                }
               }
               if (property.target.attribute) {
                 this.chartContainer.setAttributeMapping(
@@ -781,7 +832,21 @@ namespace powerbi.extensibility.visual {
       ) as PowerBIProperty[];
       for (const p of templateProperties) {
         if (this.properties[p.powerBIName] !== undefined) {
-          properties[p.powerBIName] = this.properties[p.powerBIName];
+          if (p.displayName.indexOf("yData.categories") > -1 || p.displayName.indexOf("yData.categories") > -1 || p.displayName.indexOf("axis.categories") > -1) {
+            const values = this.chartContainer.getProperty(p.objectID, {
+              property: (p.target.property as any).property,
+              field: (p.target.property as any).field
+            });
+            const a = values[0].toString();
+            const b = values[(values as  any[]).length-1].toString();
+            if (a.localeCompare(b)) {
+              properties[p.powerBIName] = "ascending";
+            } else {
+              properties[p.powerBIName] = "descending";
+            }
+          } else {
+            properties[p.powerBIName] = this.properties[p.powerBIName];
+          }
         } else {
           if (this.chartContainer) {
             if (p.target.property) {
