@@ -170,7 +170,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         return "Sublayout order";
       }
       default:
-        let words = name.replace(/([a-z])([A-Z])/g, "$1 $2").split(" ");
+        let words = name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\./g," ").split(" ");
         words = words.map(w => w.toLowerCase());
         words[0] = words[0][0].toUpperCase() + words[0].slice(1);
 

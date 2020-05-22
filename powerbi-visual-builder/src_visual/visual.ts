@@ -569,17 +569,19 @@ namespace powerbi.extensibility.visual {
                         field: property.target.property.field
                       }
                     );
-                    values = this.deepClone(values);
-                    values = (values as string[]).sort();
-                    if (direction === "descending") {
-                      values = (values as string[]).reverse();
-                    }
-                    CharticulatorContainer.ChartTemplate.SetChartProperty(
-                      chart,
-                      property.objectID,
-                      property.target.property,
-                      values
-                    );                  
+                    if (values) {
+                      values = this.deepClone(values);
+                      values = (values as string[]).sort();
+                      if (direction === "descending") {
+                        values = (values as string[]).reverse();
+                      }
+                      CharticulatorContainer.ChartTemplate.SetChartProperty(
+                        chart,
+                        property.objectID,
+                        property.target.property,
+                        values
+                      );
+                    }          
                 } else {
                   CharticulatorContainer.ChartTemplate.SetChartProperty(
                     chart,
@@ -832,17 +834,21 @@ namespace powerbi.extensibility.visual {
       ) as PowerBIProperty[];
       for (const p of templateProperties) {
         if (this.properties[p.powerBIName] !== undefined) {
-          if (p.displayName.indexOf("yData.categories") > -1 || p.displayName.indexOf("yData.categories") > -1 || p.displayName.indexOf("axis.categories") > -1) {
+          if (p.displayName.indexOf("xData.categories") > -1 || p.displayName.indexOf("yData.categories") > -1 || p.displayName.indexOf("axis.categories") > -1) {
             const values = this.chartContainer.getProperty(p.objectID, {
               property: (p.target.property as any).property,
               field: (p.target.property as any).field
             });
-            const a = values[0].toString();
-            const b = values[(values as  any[]).length-1].toString();
-            if (a.localeCompare(b)) {
-              properties[p.powerBIName] = "ascending";
+            if (values) {
+              const a = values[0].toString();
+              const b = values[(values as  any[]).length-1].toString();
+              if (b.localeCompare(a) > -1) {
+                properties[p.powerBIName] = "ascending";
+              } else {
+                properties[p.powerBIName] = "descending";
+              }
             } else {
-              properties[p.powerBIName] = "descending";
+              properties[p.powerBIName] = "ascending";
             }
           } else {
             properties[p.powerBIName] = this.properties[p.powerBIName];
