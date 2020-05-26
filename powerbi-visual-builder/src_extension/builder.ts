@@ -434,13 +434,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
       for (const column of links) {
         // Refine column names
-        column.powerBIName = column.name.replace(/[^0-9a-zA-Z\_]/g, "_");
+        column.powerBIName = column.displayName.replace(/[^0-9a-zA-Z\_]/g, "_");
         dataViewMappingsConditions[column.powerBIName] = { max: 1 };
       }
 
       links.forEach(link => {
         const linksRole = {
-          displayName: link.name,
+          displayName: link.displayName,
           name: link.powerBIName,
           kind: "GroupingOrMeasure"
         } as DataRole;
