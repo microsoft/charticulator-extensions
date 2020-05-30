@@ -71,6 +71,8 @@ function getText(url: string) {
 
 const symbolTypes = Charticulator.Core.Prototypes.Marks.symbolTypesList;
 
+const propertyAndObjectNamePrefix = "ID_";
+
 class PowerBIVisualGenerator implements ExportTemplateTarget {
   constructor(
     public template: Specification.Template.ChartTemplate,
@@ -352,11 +354,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     for (const property of template.properties.filter(
       this.propertyFilter
     ) as PowerBIProperty[]) {
-      const powerBIObjectName = property.objectID;
+      // object name should NOT start by a number
+      const powerBIObjectName = propertyAndObjectNamePrefix + property.objectID;
 
       const object = Charticulator.Core.Prototypes.findObjectById(
         template.specification,
-        powerBIObjectName
+        property.objectID
       );
 
       // const object = common.findObjectById(template.specification, powerBIObjectName) as Specification.Object;
@@ -370,6 +373,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         };
       }
       property.powerBIName = (
+        propertyAndObjectNamePrefix + 
         property.objectID +
         "_" +
         property.displayName
@@ -385,11 +389,6 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
-        {
-          displayName: "Primary Key",
-          name: "primarykey",
-          kind: "Grouping"
-        },
         ...columns.map(column => {
           return {
             displayName: column.displayName,
@@ -401,6 +400,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           displayName: "Tooltips",
           name: "powerBITooltips",
           kind: "GroupingOrMeasure"
+        },
+        {
+          displayName: "Primary Key",
+          name: "primarykey",
+          kind: "Grouping"
         }
       ],
       dataViewMappings: [

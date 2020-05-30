@@ -41,6 +41,8 @@ namespace powerbi.extensibility.visual {
 
   const powerBITooltipsTablename = "powerBITooltips";
 
+  const propertyAndObjectNamePrefix = "ID_";
+
   class CharticulatorPowerBIVisual {
     protected host: IVisualHost;
     protected selectionManager: ISelectionManager;
@@ -826,11 +828,11 @@ namespace powerbi.extensibility.visual {
     }
 
     public enumerateObjectInstances(options) {
-      const objectName = options.objectName;
+      const objectName = options.objectName as string;
       const objectEnumeration = [];
       const properties: { [name: string]: any } = {};
       const templateProperties = this.template.properties.filter(
-        p => p.objectID === objectName
+        p => p.objectID === objectName.replace(propertyAndObjectNamePrefix, "")
       ) as PowerBIProperty[];
       for (const p of templateProperties) {
         if (this.properties[p.powerBIName] !== undefined) {
