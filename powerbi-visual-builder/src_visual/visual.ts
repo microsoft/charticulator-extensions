@@ -772,16 +772,18 @@ namespace powerbi.extensibility.visual {
                       property: property.target.property.property,
                       field: property.target.property.field
                     });
-                    values = this.deepClone(values);
-                    values = (values as string[]).sort();
-                    if (direction === "descending") {
-                      values = (values as string[]).reverse();
+                    if (values) {
+                      values = this.deepClone(values);
+                      values = (values as string[]).sort();
+                      if (direction === "descending") {
+                        values = (values as string[]).reverse();
+                      }
+                      this.chartContainer.setProperty(
+                        property.objectID,
+                        property.target.property,
+                        values
+                      );
                     }
-                    this.chartContainer.setProperty(
-                      property.objectID,
-                      property.target.property,
-                      values
-                    );                  
                 } else {
                   this.chartContainer.setProperty(
                     property.objectID,
