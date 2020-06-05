@@ -429,7 +429,7 @@ namespace powerbi.extensibility.visual {
       for (const key of objectKeys) {
         const object = objects[key];
         for (const p of this.template.properties.filter(
-          p => p.objectID === key
+          p => p.objectID === key.slice(3) // remove ID_ prefix
         ) as PowerBIProperty[]) {
           if (object[p.powerBIName] != undefined) {
             if ((object[p.powerBIName] as any).solid) {
