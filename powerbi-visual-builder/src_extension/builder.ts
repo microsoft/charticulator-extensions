@@ -404,7 +404,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         {
           displayName: "Primary Key",
           name: "primarykey",
-          kind: "Grouping"
+          kind: "GroupingOrMeasure",
+          description: "Primary Key/Row ID/Granularity (Level of Detail)"
         }
       ],
       dataViewMappings: [
