@@ -263,13 +263,15 @@ namespace powerbi.extensibility.visual {
         };
         tooltipsTable.columns = [];
         tooltipsTableColumns.forEach((pbiColumn) => {
-          columnToValues[pbiColumn.source.displayName] = this.mapColumns(pbiColumn, type);
-          tooltipsTable.columns.push({
-            displayName: pbiColumn.source.displayName,
-            name: pbiColumn.source.displayName,
-            metadata,
-            type
-          });
+            if (!columnToValues[pbiColumn.source.displayName]) {
+              columnToValues[pbiColumn.source.displayName] = this.mapColumns(pbiColumn, type);
+            }
+            tooltipsTable.columns.push({
+              displayName: pbiColumn.source.displayName,
+              name: pbiColumn.source.displayName,
+              metadata,
+              type
+            });
         });
       }
       const tooltips =
