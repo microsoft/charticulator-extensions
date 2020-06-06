@@ -262,7 +262,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
               this.template.specification,
               property.objectID
             );
-            const isPlotSegment = Charticulator.Core.Prototypes.isType(object.classID, "plot-segment");
+            const isPlotSegment = Charticulator.Core.Prototypes.isType(object.classID, "plot-segment") ||
+            Charticulator.Core.Prototypes.isType(object.classID, "mark.data-axis");
 
             if (isPlotSegment) {
               const table = (object as any).table; // TODO fix to Charticulator.Core.Prototypes.PlotSegments
