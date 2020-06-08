@@ -88,6 +88,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         default: false
       },
       {
+        displayName: "Enable highlight",
+        name: "supportsHighlight",
+        type: "boolean",
+        default: true
+      },
+      {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
@@ -390,6 +396,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const capabilities: SchemaCapabilities = {
       dataRoles: [
+        {
+          displayName: "Primary Key",
+          name: "primarykey",
+          kind: "GroupingOrMeasure",
+          description: "Primary Key/Row ID/Granularity (Level of Detail)"
+        },
         ...columns.map(column => {
           return {
             displayName: column.displayName,
@@ -401,12 +413,6 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           displayName: "Tooltips",
           name: "powerBITooltips",
           kind: "GroupingOrMeasure"
-        },
-        {
-          displayName: "Primary Key",
-          name: "primarykey",
-          kind: "GroupingOrMeasure",
-          description: "Primary Key/Row ID/Granularity (Level of Detail)"
         }
       ],
       dataViewMappings: [
@@ -418,7 +424,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
                 {
                   bind: { to: "primarykey" }
                 },
-                ...columns.map(column => {
+                ...columns/*.filter(column => column.type !== Charticulator.Core.Dataset.DataType.Number)*/.map(column => {
                   return {
                     bind: { to: column.powerBIName }
                   };
@@ -435,7 +441,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             },
             values: {
               select: [
-                ...columns.map(column => {
+                ...columns/** .filter(column => column.type === Charticulator.Core.Dataset.DataType.Number) */.map(column => {
                   return {
                     bind: { to: column.powerBIName }
                   };
@@ -456,7 +462,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
       // Power BI will give us a set of highlight values instead of filtering the data.
-      supportsHighlight: true,
+      supportsHighlight: properties.supportsHighlight,
       tooltips: {
         supportedTypes: {
           default: true,
@@ -471,7 +477,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     if (properties.drillDown) {
       capabilities.drilldown = {
         roles: [
-          ...columns.map(column => column.powerBIName)
+          ...capabilities.dataRoles.map(column => column.name)
         ]
       };
     }
