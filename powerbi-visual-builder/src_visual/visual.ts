@@ -252,8 +252,8 @@ namespace powerbi.extensibility.visual {
 
       const tooltipsTable = this.getTooltipsTable(this.template);
       const tooltipsTableColumns = [
-        ...options.dataViews[0].categorical.categories.filter(cat => cat.source.roles.powerBITooltips),
-        ...(options.dataViews[0].categorical.values ? options.dataViews[0].categorical.values.filter(cat => cat.source.roles.powerBITooltips) : [])
+        ...categorical.categories.filter(cat => cat.source.roles.powerBITooltips),
+        ...(categorical.values ? categorical.values.filter(cat => cat.source.roles.powerBITooltips) : [])
       ]
 
       if (tooltipsTable && tooltipsTableColumns) {
@@ -559,18 +559,19 @@ namespace powerbi.extensibility.visual {
               if (this.properties[property.powerBIName] === undefined) {
                 continue;
               }
-              if (property.target.property) {
-                if (typeof property.target.property === "object" &&
-                  (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
-                  property.target.property.field === "categories"
+              const targetProperty = property.target.property;
+              if (targetProperty) {
+                if (typeof targetProperty === "object" &&
+                  (targetProperty.property === "xData" || targetProperty.property === "yData" || targetProperty.property === "axis") &&
+                  targetProperty.field === "categories"
                   ) {
                     const direction = this.properties[property.powerBIName];
                     let values = CharticulatorContainer.ChartTemplate.GetChartProperty(
                       chart,
                       property.objectID,
                       {
-                        property: property.target.property.property,
-                        field: property.target.property.field
+                        property: targetProperty.property,
+                        field: targetProperty.field
                       }
                     );
                     if (values) {
@@ -582,7 +583,7 @@ namespace powerbi.extensibility.visual {
                       CharticulatorContainer.ChartTemplate.SetChartProperty(
                         chart,
                         property.objectID,
-                        property.target.property,
+                        targetProperty,
                         values
                       );
                     }          
@@ -590,7 +591,7 @@ namespace powerbi.extensibility.visual {
                   CharticulatorContainer.ChartTemplate.SetChartProperty(
                     chart,
                     property.objectID,
-                    property.target.property,
+                    targetProperty,
                     this.properties[property.powerBIName]
                   );
                 }
@@ -764,15 +765,16 @@ namespace powerbi.extensibility.visual {
               if (this.properties[property.powerBIName] === undefined) {
                 continue;
               }
-              if (property.target.property) {
-                if (typeof property.target.property === "object" &&
-                  (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
-                  property.target.property.field === "categories"
+              const targetProperty = property.target.property;
+              if (targetProperty) {
+                if (typeof targetProperty === "object" &&
+                  (targetProperty.property === "xData" || targetProperty.property === "yData" || targetProperty.property === "axis") &&
+                  targetProperty.field === "categories"
                   ) {
                     const direction = this.properties[property.powerBIName];
                     let values = this.chartContainer.getProperty(property.objectID, {
-                      property: property.target.property.property,
-                      field: property.target.property.field
+                      property: targetProperty.property,
+                      field: targetProperty.field
                     });
                     if (values) {
                       values = this.deepClone(values);
@@ -782,14 +784,14 @@ namespace powerbi.extensibility.visual {
                       }
                       this.chartContainer.setProperty(
                         property.objectID,
-                        property.target.property,
+                        targetProperty,
                         values
                       );
                     }
                 } else {
                   this.chartContainer.setProperty(
                     property.objectID,
-                    property.target.property,
+                    targetProperty,
                     this.properties[property.powerBIName]
                   );
                 }
