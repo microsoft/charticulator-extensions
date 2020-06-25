@@ -40,8 +40,24 @@ namespace powerbi.extensibility.visual {
   }
 
   const powerBITooltipsTablename = "powerBITooltips";
-
+  const rawColumnPostFix = "_raw";
   const propertyAndObjectNamePrefix = "ID_";
+  const rawColumnFilter = (allColumns: CharticulatorContainer.Specification.Template.Column[]) => column => (column.type === "date" || column.type === "boolean") && !allColumns.filter(c => c.name === column.metadata.rawColumnName).length;
+
+  const rawColumnMapper = column => {
+    const rawName = `${column.name}${rawColumnPostFix}`;
+    return {
+      ...column,
+      name: rawName,
+      displayName: rawName,
+      powerBIName: rawName,
+      metadata: {
+        ...column.metadata,
+        rawColumnName: null,
+        isRaw: true
+      }
+    }
+  }
 
   class CharticulatorPowerBIVisual {
     protected host: IVisualHost;
@@ -99,11 +115,15 @@ namespace powerbi.extensibility.visual {
 
     private mapColumns(
       powerBIColumn: DataViewValueColumn | DataViewCategoryColumn,
-      type: CharticulatorContainer.Specification.DataType
-    ) {
-      return {
+      type: CharticulatorContainer.Specification.DataType,
+      rawFormat?: string
+    ): Array<{
+      values: CharticulatorContainer.Specification.DataValue[],
+      highlights: boolean[]
+    }> {
+      const columns = [{
         values: CharticulatorContainer.Dataset.convertColumnType(
-          powerBIColumn.values.map(x => (x == null ? null : x.valueOf())),
+          powerBIColumn.values.map(x => (x == null ? null : x.valueOf())), // todo apply d3.format for dates with rawFormat
           type
         ),
         highlights: powerBIColumn.values.map((value, i) => {
@@ -114,7 +134,22 @@ namespace powerbi.extensibility.visual {
             value.valueOf()
             : false;
         })
-      };
+      }];
+      if (type === "date" || type === "boolean") {
+        columns.push({
+          values: powerBIColumn.values.map(x => (x == null ? null : x.toString())), // todo handle date format
+          highlights: powerBIColumn.values.map((value, i) => {
+            return (powerBIColumn as DataViewValueColumn).highlights &&
+              (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
+              value != null
+              ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() <=
+              value.valueOf()
+              : false;
+          })
+        })
+      }
+
+      return columns;
     }
 
     private deepClone<T>(obj: T): T {
@@ -203,29 +238,39 @@ namespace powerbi.extensibility.visual {
         };
       } = {};
       const defaultTable = this.getDefaultTable(this.template);
-      const columns = defaultTable.columns as PowerBIColumn[];
+      let columns = defaultTable.columns as PowerBIColumn[];
       for (const chartColumn of columns) {
         let found = false;
         if (valueColumns != null) {
           for (const powerBIColumn of valueColumns) {
             if (powerBIColumn.source.roles[chartColumn.powerBIName]) {
-              columnToValues[chartColumn.powerBIName] = this.mapColumns(
+              const [converted, raw] = this.mapColumns(
                 powerBIColumn,
-                chartColumn.type
+                chartColumn.type,
+                chartColumn.metadata.format
               );
+              columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
+              if (raw) {
+                columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
+              }
               found = true;
             }
           }
         }
         for (const powerBIColumn of categories) {
           if (
-            powerBIColumn.source.roles[chartColumn.powerBIName] &&
-            !columnToValues[chartColumn.powerBIName]
+            powerBIColumn.source.roles[chartColumn.powerBIName || chartColumn.name] &&
+            !columnToValues[chartColumn.powerBIName || chartColumn.name]
           ) {
-            columnToValues[chartColumn.powerBIName] = this.mapColumns(
+
+            const [converted, raw] = this.mapColumns(
               powerBIColumn,
               chartColumn.type
             );
+            columnToValues[chartColumn.powerBIName] = converted;
+            if (raw) {
+              columnToValues[`${chartColumn.powerBIName}${rawColumnPostFix}`] = raw;
+            }
             found = true;
           }
         }
@@ -233,21 +278,31 @@ namespace powerbi.extensibility.visual {
           return null;
         }
       }
+      const defaultTableRawColumns = defaultTable.columns.filter(rawColumnFilter(defaultTable.columns)).map(rawColumnMapper);
+      columns = defaultTable.columns = defaultTable.columns.concat(defaultTableRawColumns) as PowerBIColumn[];
 
       const linksTable = this.getLinksTable(this.template);
       const powerBILinkColumns = options.dataViews[0].categorical.categories;
-      const chartLinks = linksTable && (linksTable.columns as PowerBIColumn[]);
+      let chartLinks = linksTable && (linksTable.columns as PowerBIColumn[]);
 
       if (chartLinks && powerBILinkColumns) {
         for (const chartColumn of chartLinks) {
           for (const powerBIColumn of powerBILinkColumns) {
             if (powerBIColumn.source.roles[chartColumn.powerBIName]) {
-              columnToValues[
-                chartColumn.powerBIName || chartColumn.name
-              ] = this.mapColumns(powerBIColumn, chartColumn.type);
+              const [converted, raw] = this.mapColumns(
+                powerBIColumn,
+                chartColumn.type
+              );
+              columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
+              if (raw) {
+                columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
+              }
             }
           }
         }
+
+        const linksTableRawColumns = linksTable.columns.filter(rawColumnFilter(linksTable.columns)).map(rawColumnMapper);
+        chartLinks = linksTable.columns = linksTable.columns.concat(linksTableRawColumns) as PowerBIColumn[];
       }
 
       const tooltipsTable = this.getTooltipsTable(this.template);
@@ -262,16 +317,23 @@ namespace powerbi.extensibility.visual {
           kind: "categorical"
         };
         tooltipsTable.columns = [];
-        tooltipsTableColumns.forEach((pbiColumn) => {
-            if (!columnToValues[pbiColumn.source.displayName]) {
-              columnToValues[pbiColumn.source.displayName] = this.mapColumns(pbiColumn, type);
-            }
-            tooltipsTable.columns.push({
-              displayName: pbiColumn.source.displayName,
-              name: pbiColumn.source.displayName,
-              metadata,
+        tooltipsTableColumns.forEach((powerBIColumn) => {
+          if (!columnToValues[powerBIColumn.source.displayName]) {
+            const [converted, raw] = this.mapColumns(
+              powerBIColumn,
               type
-            });
+            );
+            columnToValues[powerBIColumn.source.displayName] = converted;
+            if (raw) {
+              columnToValues[`${powerBIColumn.source.displayName}${rawColumnPostFix}`] = raw;
+            }
+          }
+          tooltipsTable.columns.push({
+            displayName: powerBIColumn.source.displayName,
+            name: powerBIColumn.source.displayName,
+            metadata,
+            type
+          });
         });
       }
       const tooltips =
@@ -564,29 +626,29 @@ namespace powerbi.extensibility.visual {
                 if (typeof targetProperty === "object" &&
                   (targetProperty.property === "xData" || targetProperty.property === "yData" || targetProperty.property === "axis") &&
                   targetProperty.field === "categories"
-                  ) {
-                    const direction = this.properties[property.powerBIName];
-                    let values = CharticulatorContainer.ChartTemplate.GetChartProperty(
+                ) {
+                  const direction = this.properties[property.powerBIName];
+                  let values = CharticulatorContainer.ChartTemplate.GetChartProperty(
+                    chart,
+                    property.objectID,
+                    {
+                      property: targetProperty.property,
+                      field: targetProperty.field
+                    }
+                  );
+                  if (values) {
+                    values = this.deepClone(values);
+                    values = (values as string[]).sort();
+                    if (direction === "descending") {
+                      values = (values as string[]).reverse();
+                    }
+                    CharticulatorContainer.ChartTemplate.SetChartProperty(
                       chart,
                       property.objectID,
-                      {
-                        property: targetProperty.property,
-                        field: targetProperty.field
-                      }
+                      targetProperty,
+                      values
                     );
-                    if (values) {
-                      values = this.deepClone(values);
-                      values = (values as string[]).sort();
-                      if (direction === "descending") {
-                        values = (values as string[]).reverse();
-                      }
-                      CharticulatorContainer.ChartTemplate.SetChartProperty(
-                        chart,
-                        property.objectID,
-                        targetProperty,
-                        values
-                      );
-                    }          
+                  }
                 } else {
                   CharticulatorContainer.ChartTemplate.SetChartProperty(
                     chart,
@@ -770,24 +832,24 @@ namespace powerbi.extensibility.visual {
                 if (typeof targetProperty === "object" &&
                   (targetProperty.property === "xData" || targetProperty.property === "yData" || targetProperty.property === "axis") &&
                   targetProperty.field === "categories"
-                  ) {
-                    const direction = this.properties[property.powerBIName];
-                    let values = this.chartContainer.getProperty(property.objectID, {
-                      property: targetProperty.property,
-                      field: targetProperty.field
-                    });
-                    if (values) {
-                      values = this.deepClone(values);
-                      values = (values as string[]).sort();
-                      if (direction === "descending") {
-                        values = (values as string[]).reverse();
-                      }
-                      this.chartContainer.setProperty(
-                        property.objectID,
-                        targetProperty,
-                        values
-                      );
+                ) {
+                  const direction = this.properties[property.powerBIName];
+                  let values = this.chartContainer.getProperty(property.objectID, {
+                    property: targetProperty.property,
+                    field: targetProperty.field
+                  });
+                  if (values) {
+                    values = this.deepClone(values);
+                    values = (values as string[]).sort();
+                    if (direction === "descending") {
+                      values = (values as string[]).reverse();
                     }
+                    this.chartContainer.setProperty(
+                      property.objectID,
+                      targetProperty,
+                      values
+                    );
+                  }
                 } else {
                   this.chartContainer.setProperty(
                     property.objectID,
@@ -849,7 +911,7 @@ namespace powerbi.extensibility.visual {
             });
             if (values) {
               const a = values[0].toString();
-              const b = values[(values as  any[]).length-1].toString();
+              const b = values[(values as any[]).length - 1].toString();
               if (b.localeCompare(a) > -1) {
                 properties[p.powerBIName] = "ascending";
               } else {
