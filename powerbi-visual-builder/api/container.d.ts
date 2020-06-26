@@ -142,6 +142,13 @@ declare namespace CharticulatorContainer {
     remove(): void;
   }
 
+  namespace Utils {
+    function applyDateFormat(
+      value: Date,
+      format: string
+    ): string;
+  }
+
   namespace Dataset {
     type ValueType = string | number | Date | boolean;
     interface Dataset {
@@ -188,6 +195,8 @@ declare namespace CharticulatorContainer {
       values: any[],
       type: Specification.DataType
     ): Specification.DataValue[];
+
+    const rawColumnPostFix = "_raw";
   }
 
   namespace Specification {

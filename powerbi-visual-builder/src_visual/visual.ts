@@ -39,8 +39,10 @@ namespace powerbi.extensibility.visual {
     return a1.every(i => s2.has(i)) && a2.every(i => s1.has(i));
   }
 
+  const rawColumnPostFix = CharticulatorContainer.Dataset.rawColumnPostFix;
+  const applyDateFormat = CharticulatorContainer.Utils.applyDateFormat;
   const powerBITooltipsTablename = "powerBITooltips";
-  const rawColumnPostFix = "_raw";
+  // const rawColumnPostFix = "_raw";
   const propertyAndObjectNamePrefix = "ID_";
   const rawColumnFilter = (allColumns: CharticulatorContainer.Specification.Template.Column[]) => column => (column.type === "date" || column.type === "boolean") && !allColumns.filter(c => c.name === column.metadata.rawColumnName).length;
 
@@ -123,7 +125,7 @@ namespace powerbi.extensibility.visual {
     }> {
       const columns = [{
         values: CharticulatorContainer.Dataset.convertColumnType(
-          powerBIColumn.values.map(x => (x == null ? null : x.valueOf())), // todo apply d3.format for dates with rawFormat
+          powerBIColumn.values.map(x => (x == null ? null : x.valueOf())),
           type
         ),
         highlights: powerBIColumn.values.map((value, i) => {
@@ -136,17 +138,34 @@ namespace powerbi.extensibility.visual {
         })
       }];
       if (type === "date" || type === "boolean") {
-        columns.push({
-          values: powerBIColumn.values.map(x => (x == null ? null : x.toString())), // todo handle date format
-          highlights: powerBIColumn.values.map((value, i) => {
-            return (powerBIColumn as DataViewValueColumn).highlights &&
-              (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
-              value != null
-              ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() <=
-              value.valueOf()
-              : false;
-          })
-        })
+        if (rawFormat) {
+          columns.push({
+            values: CharticulatorContainer.Dataset.convertColumnType(
+              powerBIColumn.values.map(x => (x == null ? null : x.valueOf())),
+              type
+            ).map(x => rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString()), 
+            highlights: powerBIColumn.values.map((value, i) => {
+              return (powerBIColumn as DataViewValueColumn).highlights &&
+                (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
+                value != null
+                ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() <=
+                value.valueOf()
+                : false;
+            })
+          });
+        } else {
+          columns.push({
+            values: powerBIColumn.values.map(x => (x == null ? null : rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString())), 
+            highlights: powerBIColumn.values.map((value, i) => {
+              return (powerBIColumn as DataViewValueColumn).highlights &&
+                (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
+                value != null
+                ? (powerBIColumn as DataViewValueColumn).highlights[i].valueOf() <=
+                value.valueOf()
+                : false;
+            })
+          });
+        }
       }
 
       return columns;
@@ -265,7 +284,8 @@ namespace powerbi.extensibility.visual {
 
             const [converted, raw] = this.mapColumns(
               powerBIColumn,
-              chartColumn.type
+              chartColumn.type,
+              chartColumn.metadata && chartColumn.metadata.format
             );
             columnToValues[chartColumn.powerBIName] = converted;
             if (raw) {
@@ -291,7 +311,8 @@ namespace powerbi.extensibility.visual {
             if (powerBIColumn.source.roles[chartColumn.powerBIName]) {
               const [converted, raw] = this.mapColumns(
                 powerBIColumn,
-                chartColumn.type
+                chartColumn.type,
+                chartColumn.metadata && chartColumn.metadata.format
               );
               columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
               if (raw) {
@@ -541,6 +562,7 @@ namespace powerbi.extensibility.visual {
       try {
         this.resize(options.viewport.width, options.viewport.height);
 
+        debugger;
         const getDatasetResult = this.getDataset(options);
 
         if (getDatasetResult == null) {
