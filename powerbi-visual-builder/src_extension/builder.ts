@@ -82,7 +82,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     public template: Specification.Template.ChartTemplate,
     public containerScriptURL: string
   ) {
-    this.template = deepClone(template);
+    this.template = template;
   }
 
   public getProperties() {
@@ -313,7 +313,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
   // Return a Promise<base64>
   public async generate(properties: { [name: string]: any }): Promise<string> {
-    const template = this.template;
+    const template = deepClone(this.template);
     const config = {
       name: properties.visualName,
       displayName: properties.visualName,
