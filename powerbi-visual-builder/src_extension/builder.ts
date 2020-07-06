@@ -482,7 +482,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       }
     };
 
-    if (properties.drillDown) {
+    if (properties.enableDrillDown) {
       capabilities.drilldown = {
         roles: [
           ...capabilities.dataRoles.map(column => column.name)
