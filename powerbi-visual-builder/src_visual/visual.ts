@@ -411,7 +411,7 @@ namespace powerbi.extensibility.visual {
     protected getProperties(options: VisualUpdateOptions) {
       const defaultProperties: { [name: string]: any } = {};
       for (const p of this.template.properties as PowerBIProperty[]) {
-        defaultProperties[p.powerBIName] = p.default;
+        defaultProperties[p.powerBIName || p.displayName] = p.default;
       }
 
       if (

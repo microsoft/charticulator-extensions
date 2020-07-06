@@ -73,11 +73,17 @@ const symbolTypes = Charticulator.Core.Prototypes.Marks.symbolTypesList;
 
 const propertyAndObjectNamePrefix = "ID_";
 
+function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 class PowerBIVisualGenerator implements ExportTemplateTarget {
   constructor(
     public template: Specification.Template.ChartTemplate,
     public containerScriptURL: string
-  ) {}
+  ) {
+    this.template = template;
+  }
 
   public getProperties() {
     return [
@@ -307,7 +313,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
   // Return a Promise<base64>
   public async generate(properties: { [name: string]: any }): Promise<string> {
-    const template = this.template;
+    const template = deepClone(this.template);
     const config = {
       name: properties.visualName,
       displayName: properties.visualName,
@@ -370,7 +376,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       );
 
       // const object = common.findObjectById(template.specification, powerBIObjectName) as Specification.Object;
-      if (!object || !(object as any).exposed) {
+      if (!object || !(object as any).exposed && !(object.properties as any).exposed) {
         continue;
       }
       if (!powerBIObjects[powerBIObjectName]) {
@@ -457,7 +463,9 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
       /* Tell PBI to allow for sorting */
       sorting: {
-        default: {}
+        default: {
+
+        }
       },
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
