@@ -42,9 +42,8 @@ namespace powerbi.extensibility.visual {
   const rawColumnPostFix = CharticulatorContainer.Dataset.rawColumnPostFix;
   const applyDateFormat = CharticulatorContainer.Utils.applyDateFormat;
   const powerBITooltipsTablename = "powerBITooltips";
-  // const rawColumnPostFix = "_raw";
   const propertyAndObjectNamePrefix = "ID_";
-  const rawColumnFilter = (allColumns: CharticulatorContainer.Specification.Template.Column[]) => column => (column.type === "date" || column.type === "boolean") && !allColumns.filter(c => c.name === column.metadata.rawColumnName).length;
+  const rawColumnFilter = (allColumns: CharticulatorContainer.Specification.Template.Column[]) => column => !column.metadata.isRaw && (column.type === "date" || column.type === "boolean") && !allColumns.filter(c => c.name === column.metadata.rawColumnName).length;
 
   const rawColumnMapper = column => {
     const rawName = `${column.name}${rawColumnPostFix}`;
@@ -143,7 +142,7 @@ namespace powerbi.extensibility.visual {
             values: CharticulatorContainer.Dataset.convertColumnType(
               powerBIColumn.values.map(x => (x == null ? null : x.valueOf())),
               type
-            ).map(x => rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString()), 
+            ).map(x => rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString()),
             highlights: powerBIColumn.values.map((value, i) => {
               return (powerBIColumn as DataViewValueColumn).highlights &&
                 (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
@@ -155,7 +154,7 @@ namespace powerbi.extensibility.visual {
           });
         } else {
           columns.push({
-            values: powerBIColumn.values.map(x => (x == null ? null : rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString())), 
+            values: powerBIColumn.values.map(x => (x == null ? null : rawFormat ? applyDateFormat(x as Date, rawFormat) : x.toString())),
             highlights: powerBIColumn.values.map((value, i) => {
               return (powerBIColumn as DataViewValueColumn).highlights &&
                 (powerBIColumn as DataViewValueColumn).highlights[i] != null &&
@@ -257,7 +256,7 @@ namespace powerbi.extensibility.visual {
         };
       } = {};
       const defaultTable = this.getDefaultTable(this.template);
-      let columns = defaultTable.columns as PowerBIColumn[];
+      let columns = defaultTable.columns.filter(col => !col.metadata.isRaw) as PowerBIColumn[];
       for (const chartColumn of columns) {
         let found = false;
         if (valueColumns != null) {
@@ -269,7 +268,7 @@ namespace powerbi.extensibility.visual {
                 chartColumn.metadata.format
               );
               columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
-              if (raw) {
+              if (raw && !chartColumn.metadata.isRaw) {
                 columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
               }
               found = true;
@@ -288,7 +287,7 @@ namespace powerbi.extensibility.visual {
               chartColumn.metadata && chartColumn.metadata.format
             );
             columnToValues[chartColumn.powerBIName] = converted;
-            if (raw) {
+            if (raw && !chartColumn.metadata.isRaw) {
               columnToValues[`${chartColumn.powerBIName}${rawColumnPostFix}`] = raw;
             }
             found = true;
@@ -303,7 +302,7 @@ namespace powerbi.extensibility.visual {
 
       const linksTable = this.getLinksTable(this.template);
       const powerBILinkColumns = options.dataViews[0].categorical.categories;
-      let chartLinks = linksTable && (linksTable.columns as PowerBIColumn[]);
+      let chartLinks = linksTable && (linksTable.columns.filter(col => !col.metadata.isRaw) as PowerBIColumn[]);
 
       if (chartLinks && powerBILinkColumns) {
         for (const chartColumn of chartLinks) {
@@ -377,6 +376,9 @@ namespace powerbi.extensibility.visual {
           let rowHash = rowIdentity.length ? rowIdentity.map(idRow => idRow.values[i]).toString() : "";
           for (const column of columns) {
             const valueColumn = columnToValues[column.powerBIName];
+            if (!valueColumn) {
+              return null;
+            }
             const value = valueColumn.values[i];
 
             if (value == null) {
@@ -774,6 +776,7 @@ namespace powerbi.extensibility.visual {
                   .map(i => selectionIDs[i])
                   .filter(x => x != null);
 
+                debugger;
                 const info = {
                   coordinates: [this.currentX, this.currentY],
                   isTouchEvent: false,
