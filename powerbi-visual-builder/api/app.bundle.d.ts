@@ -1782,6 +1782,8 @@ declare module "Charticulator/core/dataset/dataset" {
     orderMode?: "alphabetically" | "occurrence" | "order";
     /** Formatting for other data types */
     format?: string;
+    /** Indicates raw column*/
+    isRaw?: boolean;
   }
   export interface Column {
     /** Name, used to address the entry from row */

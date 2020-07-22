@@ -377,13 +377,20 @@ namespace powerbi.extensibility.visual {
           let rowHash = rowIdentity.length ? rowIdentity.map(idRow => idRow.values[i]).toString() : "";
           for (const column of columns) {
             const valueColumn = columnToValues[column.powerBIName];
-            const value = valueColumn.values[i];
-
-            if (value == null) {
+            if (!valueColumn) {
               return null;
             }
+            let value = valueColumn.values[i];
+
+            if (value == null) {
+              if (columns.find(col => col.name === column.name).metadata.kind === "numerical") {
+                value = 0;
+              } else {
+                return null;
+              }
+            }
             obj[column.powerBIName] = value;
-            rowHash += value.toString();
+            rowHash += (value || "null").toString();
             // if one value column has highlights
             if (valueColumn.highlights[i]) {
               rowHasHighlightedColumn = true;
