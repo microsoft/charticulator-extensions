@@ -314,7 +314,7 @@ namespace powerbi.extensibility.visual {
                 chartColumn.metadata && chartColumn.metadata.format
               );
               columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
-              if (raw) {
+              if (raw && !chartColumn.metadata.isRaw) {
                 columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
               }
             }
@@ -379,13 +379,17 @@ namespace powerbi.extensibility.visual {
             if (!valueColumn) {
               return null;
             }
-            const value = valueColumn.values[i];
+            let value = valueColumn.values[i];
 
             if (value == null) {
-              return null;
+              if (columns.find(col => col.name === column.name).metadata.kind === "numerical") {
+                value = 0;
+              } else {
+                return null;
+              }
             }
             obj[column.powerBIName] = value;
-            rowHash += value.toString();
+            rowHash += (value || "null").toString();
             // if one value column has highlights
             if (valueColumn.highlights[i]) {
               rowHasHighlightedColumn = true;
