@@ -11,7 +11,7 @@
     "build": "node build.js --mode=production",
     "lint": "tslint 'src*/**/*.{ts,tsx}'",
     "test": "node build.js --mode=production",
-    "prettify": "prettier 'src*/**/*.{ts,tsx}'",
+    "prettify": "prettier \"./src_extension/**/*.{ts,tsx}\" \"./src_visual/**/*.{ts,tsx}\" --write",
     "postdev": "powershell cp ./dist/powerbi_visual_builder.js ../../charticulator/extensions/powerbi_visual_builder.js",
     "postpostdev": "powershell cp ./dist/powerbi_visual_builder.js ../../charticulator/dist/extensions/powerbi_visual_builder.js"
   },
