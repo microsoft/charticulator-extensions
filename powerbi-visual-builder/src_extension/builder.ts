@@ -184,7 +184,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         return "Sublayout order";
       }
       default:
-        let words = name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\./g," ").split(" ");
+        let words = name
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/\./g, " ")
+          .split(" ");
         words = words.map(w => w.toLowerCase());
         words[0] = words[0][0].toUpperCase() + words[0].slice(1);
 
@@ -252,14 +255,18 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             type = { text: true };
           }
         }
-        if (typeof property.target.property === "object" &&
-          (property.target.property.property === "xData" || property.target.property.property === "yData" || property.target.property.property === "axis") &&
+        if (
+          typeof property.target.property === "object" &&
+          (property.target.property.property === "xData" ||
+            property.target.property.property === "yData" ||
+            property.target.property.property === "axis") &&
           property.target.property.field === "categories"
-          ) {
+        ) {
           type = {
             enumeration: ["ascending", "descending"].map(enumeration => {
               return {
-                displayName: enumeration[0].toLocaleUpperCase() + enumeration.slice(1),
+                displayName:
+                  enumeration[0].toLocaleUpperCase() + enumeration.slice(1),
                 value: enumeration
               };
             })
@@ -268,18 +275,32 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         break;
       }
       case "object": {
-        if (property.target.property && (property.target.property as any).property === "sublayout") {
-          if (property.target.property && (property.target.property as any).field === "order") {
+        if (
+          property.target.property &&
+          (property.target.property as any).property === "sublayout"
+        ) {
+          if (
+            property.target.property &&
+            (property.target.property as any).field === "order"
+          ) {
             const object = Charticulator.Core.Prototypes.findObjectById(
               this.template.specification,
               property.objectID
             );
-            const isPlotSegment = Charticulator.Core.Prototypes.isType(object.classID, "plot-segment") ||
-            Charticulator.Core.Prototypes.isType(object.classID, "mark.data-axis");
+            const isPlotSegment =
+              Charticulator.Core.Prototypes.isType(
+                object.classID,
+                "plot-segment"
+              ) ||
+              Charticulator.Core.Prototypes.isType(
+                object.classID,
+                "mark.data-axis"
+              );
 
             if (isPlotSegment) {
               const table = (object as any).table; // TODO fix to Charticulator.Core.Prototypes.PlotSegments
-              const columns = this.template.tables.find(t => t.name === table).columns;
+              const columns = this.template.tables.find(t => t.name === table)
+                .columns;
 
               type = {
                 enumeration: columns.map(col => {
@@ -376,7 +397,10 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       );
 
       // const object = common.findObjectById(template.specification, powerBIObjectName) as Specification.Object;
-      if (!object || !(object as any).exposed && !(object.properties as any).exposed) {
+      if (
+        !object ||
+        (!(object as any).exposed && !(object.properties as any).exposed)
+      ) {
         continue;
       }
       if (!powerBIObjects[powerBIObjectName]) {
@@ -386,7 +410,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         };
       }
       property.powerBIName = (
-        propertyAndObjectNamePrefix + 
+        propertyAndObjectNamePrefix +
         property.objectID +
         "_" +
         property.displayName
@@ -430,11 +454,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
                 {
                   bind: { to: "primarykey" }
                 },
-                ...columns/*.filter(column => column.type !== Charticulator.Core.Dataset.DataType.Number)*/.map(column => {
-                  return {
-                    bind: { to: column.powerBIName }
-                  };
-                }),
+                ...columns /*.filter(column => column.type !== Charticulator.Core.Dataset.DataType.Number)*/
+                  .map(column => {
+                    return {
+                      bind: { to: column.powerBIName }
+                    };
+                  }),
                 {
                   bind: { to: "powerBITooltips" }
                 }
@@ -447,11 +472,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             },
             values: {
               select: [
-                ...columns/** .filter(column => column.type === Charticulator.Core.Dataset.DataType.Number) */.map(column => {
-                  return {
-                    bind: { to: column.powerBIName }
-                  };
-                }),
+                ...columns /** .filter(column => column.type === Charticulator.Core.Dataset.DataType.Number) */
+                  .map(column => {
+                    return {
+                      bind: { to: column.powerBIName }
+                    };
+                  }),
                 {
                   bind: { to: "powerBITooltips" }
                 }
@@ -463,9 +489,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
       /* Tell PBI to allow for sorting */
       sorting: {
-        default: {
-
-        }
+        default: {}
       },
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
@@ -484,9 +508,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     if (properties.enableDrillDown) {
       capabilities.drilldown = {
-        roles: [
-          ...capabilities.dataRoles.map(column => column.name)
-        ]
+        roles: [...capabilities.dataRoles.map(column => column.name)]
       };
     }
 
@@ -564,7 +586,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       content: {
         js: [resources.libraries, containerScript, visual].join("\n"),
         css: "",
-        iconBase64: properties.visualIcon && properties.visualIcon.src || resources.icon
+        iconBase64:
+          (properties.visualIcon && properties.visualIcon.src) || resources.icon
       }
     };
 
