@@ -263,6 +263,7 @@ namespace powerbi.extensibility.visual {
         };
       } = {};
       const defaultTable = this.getDefaultTable(this.template);
+      let columns = defaultTable.columns.filter(col => !col.metadata.isRaw) as PowerBIColumn[];
       for (const chartColumn of columns) {
         let found = false;
         if (valueColumns != null) {
