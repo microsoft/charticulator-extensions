@@ -375,7 +375,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
     const objectProperties: { [name: string]: any } = {};
 
     // TODO: for now, we assume there's only one table
-    const columns = template.tables[0].columns as PowerBIColumn[];
+    const columns = template.tables[0].columns.filter(col => !col.metadata.isRaw) as PowerBIColumn[];
 
     for (const column of columns) {
       // Refine column names
