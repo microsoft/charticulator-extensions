@@ -46,7 +46,7 @@ namespace powerbi.extensibility.visual {
   const rawColumnFilter = (allColumns: CharticulatorContainer.Specification.Template.Column[]) => column => !column.metadata.isRaw && (column.type === "date" || column.type === "boolean") && !allColumns.filter(c => c.name === column.metadata.rawColumnName).length;
 
   const rawColumnMapper = column => {
-    const rawName = `${column.name}${rawColumnPostFix}`;
+    const rawName = `${refineColumnName(column.name)}${rawColumnPostFix}`;
     return {
       ...column,
       name: rawName,
@@ -59,6 +59,8 @@ namespace powerbi.extensibility.visual {
       }
     };
   };
+
+  const refineColumnName = (name: string) => name.replace(/[^0-9a-zA-Z\_]/g, "_");
 
   class CharticulatorPowerBIVisual {
     protected host: IVisualHost;
@@ -276,7 +278,7 @@ namespace powerbi.extensibility.visual {
               );
               columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
               if (raw && !chartColumn.metadata.isRaw) {
-                columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
+                columnToValues[`${chartColumn.powerBIName || refineColumnName(chartColumn.name)}${rawColumnPostFix}`] = raw;
               }
               found = true;
             }
@@ -294,7 +296,7 @@ namespace powerbi.extensibility.visual {
               chartColumn.type,
               chartColumn.metadata && chartColumn.metadata.format
             );
-            columnToValues[chartColumn.powerBIName] = converted;
+            columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
             if (raw && !chartColumn.metadata.isRaw) {
               columnToValues[`${chartColumn.powerBIName}${rawColumnPostFix}`] = raw;
             }
@@ -327,7 +329,7 @@ namespace powerbi.extensibility.visual {
               );
               columnToValues[chartColumn.powerBIName || chartColumn.name] = converted;
               if (raw && !chartColumn.metadata.isRaw) {
-                columnToValues[`${chartColumn.powerBIName || chartColumn.name}${rawColumnPostFix}`] = raw;
+                columnToValues[`${chartColumn.powerBIName || refineColumnName(chartColumn.name)}${rawColumnPostFix}`] = raw;
               }
             }
           }
@@ -366,7 +368,7 @@ namespace powerbi.extensibility.visual {
             columnToValues[powerBIColumn.source.displayName] = converted;
             if (raw) {
               columnToValues[
-                `${powerBIColumn.source.displayName}${rawColumnPostFix}`
+                `${refineColumnName(powerBIColumn.source.displayName)}${rawColumnPostFix}`
               ] = raw;
             }
           }
@@ -593,7 +595,6 @@ namespace powerbi.extensibility.visual {
       try {
         this.resize(options.viewport.width, options.viewport.height);
 
-        debugger;
         const getDatasetResult = this.getDataset(options);
 
         if (getDatasetResult == null) {
@@ -813,7 +814,6 @@ namespace powerbi.extensibility.visual {
                   .map(i => selectionIDs[i])
                   .filter(x => x != null);
 
-                debugger;
                 const info = {
                   coordinates: [this.currentX, this.currentY],
                   isTouchEvent: false,
