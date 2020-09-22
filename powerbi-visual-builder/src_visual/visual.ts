@@ -295,7 +295,7 @@ namespace powerbi.extensibility.visual {
                 chartColumn.metadata.format
               );
               columnToValues[
-                chartColumn.powerBIName || chartColumn.name
+                chartColumn.powerBIName || refineColumnName(chartColumn.name)
               ] = converted;
               if (raw && !chartColumn.metadata.isRaw) {
                 columnToValues[
@@ -320,11 +320,12 @@ namespace powerbi.extensibility.visual {
               chartColumn.metadata && chartColumn.metadata.format
             );
             columnToValues[
-              chartColumn.powerBIName || chartColumn.name
+              chartColumn.powerBIName || refineColumnName(chartColumn.name)
             ] = converted;
             if (raw && !chartColumn.metadata.isRaw) {
               columnToValues[
-                `${chartColumn.powerBIName}${rawColumnPostFix}`
+                `${chartColumn.powerBIName ||
+                  refineColumnName(chartColumn.name)}${rawColumnPostFix}`
               ] = raw;
             }
             found = true;
@@ -749,23 +750,27 @@ namespace powerbi.extensibility.visual {
                     );
                   }
                 } else {
-                  CharticulatorContainer.ChartTemplate.SetChartProperty(
-                    chart,
-                    property.objectID,
-                    targetProperty,
-                    this.properties[property.powerBIName]
-                  );
+                  if (this.properties[property.powerBIName] != null) {
+                    CharticulatorContainer.ChartTemplate.SetChartProperty(
+                      chart,
+                      property.objectID,
+                      targetProperty,
+                      this.properties[property.powerBIName]
+                    );
+                  }
                 }
               } else {
-                CharticulatorContainer.ChartTemplate.SetChartAttributeMapping(
-                  chart,
-                  property.objectID,
-                  property.target.attribute,
-                  {
-                    type: "value",
-                    value: this.properties[property.powerBIName],
-                  } as CharticulatorContainer.Specification.ValueMapping
-                );
+                if (this.properties[property.powerBIName] != null) {
+                  CharticulatorContainer.ChartTemplate.SetChartAttributeMapping(
+                    chart,
+                    property.objectID,
+                    property.target.attribute,
+                    {
+                      type: "value",
+                      value: this.properties[property.powerBIName],
+                    } as CharticulatorContainer.Specification.ValueMapping
+                  );
+                }
               }
             }
 
@@ -971,14 +976,19 @@ namespace powerbi.extensibility.visual {
                     );
                   }
                 } else {
-                  this.chartContainer.setProperty(
-                    property.objectID,
-                    targetProperty,
-                    this.properties[property.powerBIName]
-                  );
+                  if (this.properties[property.powerBIName] != null) {
+                    this.chartContainer.setProperty(
+                      property.objectID,
+                      targetProperty,
+                      this.properties[property.powerBIName]
+                    );
+                  }
                 }
               }
-              if (property.target.attribute) {
+              if (
+                property.target.attribute &&
+                this.properties[property.powerBIName] != null
+              ) {
                 this.chartContainer.setAttributeMapping(
                   property.objectID,
                   property.target.attribute,
