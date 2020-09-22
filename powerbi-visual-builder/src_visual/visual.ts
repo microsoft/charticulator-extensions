@@ -336,6 +336,13 @@ namespace powerbi.extensibility.visual {
         }
       }
       const defaultTableRawColumns = defaultTable.columns
+        // add powerBIName to raw columns
+        .map((column: PowerBIColumn) => {
+          if (!column.powerBIName) {
+            column.powerBIName = refineColumnName(column.name);
+          }
+          return column;
+        })
         .filter((col) => !col.metadata.isRaw)
         .filter(rawColumnFilter(defaultTable.columns))
         .map(rawColumnMapper);
