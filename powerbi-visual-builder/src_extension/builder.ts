@@ -26,12 +26,12 @@ import { Specification } from "Charticulator/core";
 import {
   SchemaCapabilities,
   DataRole,
-  Objects
+  Objects,
 } from "../api/v2.1.0/schema.capabilities";
 import { AttributeMap } from "Charticulator/core/specification";
 import {
   LinksProperties,
-  LinksObject
+  LinksObject,
 } from "Charticulator/core/prototypes/links";
 import { boolean } from "Charticulator/core/expression";
 import { PropertyField } from "Charticulator/core/specification/template";
@@ -65,8 +65,8 @@ function randomHEX32() {
 
 function getText(url: string) {
   return fetch(url, {
-    credentials: "include"
-  }).then(resp => resp.text());
+    credentials: "include",
+  }).then((resp) => resp.text());
 }
 
 const symbolTypes = Charticulator.Core.Prototypes.Marks.symbolTypesList;
@@ -91,37 +91,37 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         displayName: "Enable drill-down",
         name: "enableDrillDown",
         type: "boolean",
-        default: false
+        default: false,
       },
       {
         displayName: "Enable highlight",
         name: "supportsHighlight",
         type: "boolean",
-        default: true
+        default: true,
       },
       {
         displayName: "Visual Name",
         name: "visualName",
         type: "string",
-        default: "MyVisual"
+        default: "MyVisual",
       },
       {
         displayName: "Description",
         name: "description",
         type: "string",
-        default: ""
+        default: "",
       },
       {
         displayName: "Author Name",
         name: "authorName",
         type: "string",
-        default: "Anonymous"
+        default: "Anonymous",
       },
       {
         displayName: "Author Email",
         name: "authorEmail",
         type: "string",
-        default: "anonymous@example.com"
+        default: "anonymous@example.com",
       },
       {
         displayName: "Icon",
@@ -129,9 +129,9 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         type: "file",
         default: {
           src: resources.icon,
-          name: "default.png"
-        }
-      }
+          name: "default.png",
+        },
+      },
     ];
   }
 
@@ -156,7 +156,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   private hasAnchoredLinksAndTable(
     template: Charticulator.Core.Specification.Template.ChartTemplate
   ) {
-    const link: LinksObject = template.specification.elements.find(element =>
+    const link: LinksObject = template.specification.elements.find((element) =>
       Boolean(
         element.classID === "links.table" &&
           element.properties.anchor1 &&
@@ -168,7 +168,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       const properties = link.properties as LinksProperties;
       const linkTableName = properties.linkTable && properties.linkTable.table;
       const linkTable = template.tables.find(
-        table => table.name === linkTableName
+        (table) => table.name === linkTableName
       );
 
       return linkTable;
@@ -188,7 +188,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           .replace(/([a-z])([A-Z])/g, "$1 $2")
           .replace(/\./g, " ")
           .split(" ");
-        words = words.map(w => w.toLowerCase());
+        words = words.map((w) => w.toLowerCase());
         words[0] = words[0][0].toUpperCase() + words[0].slice(1);
 
         return words.join(" ");
@@ -228,12 +228,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         switch (property.target.attribute) {
           case "symbol": {
             type = {
-              enumeration: symbolTypes.map(sym => {
+              enumeration: symbolTypes.map((sym) => {
                 return {
                   displayName: sym,
-                  value: sym
+                  value: sym,
                 };
-              })
+              }),
             };
             break;
           }
@@ -242,12 +242,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           case "alignY":
           case "alignX": {
             type = {
-              enumeration: ["end", "middle", "start"].map(sym => {
+              enumeration: ["end", "middle", "start"].map((sym) => {
                 return {
                   displayName: sym[0].toLocaleUpperCase() + sym.slice(1),
-                  value: sym
+                  value: sym,
                 };
-              })
+              }),
             };
             break;
           }
@@ -263,13 +263,13 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           property.target.property.field === "categories"
         ) {
           type = {
-            enumeration: ["ascending", "descending"].map(enumeration => {
+            enumeration: ["ascending", "descending"].map((enumeration) => {
               return {
                 displayName:
                   enumeration[0].toLocaleUpperCase() + enumeration.slice(1),
-                value: enumeration
+                value: enumeration,
               };
-            })
+            }),
           };
         }
         break;
@@ -299,16 +299,16 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
             if (isPlotSegment) {
               const table = (object as any).table; // TODO fix to Charticulator.Core.Prototypes.PlotSegments
-              const columns = this.template.tables.find(t => t.name === table)
+              const columns = this.template.tables.find((t) => t.name === table)
                 .columns;
 
               type = {
-                enumeration: columns.map(col => {
+                enumeration: columns.map((col) => {
                   return {
                     displayName: col.name,
-                    value: `first(${col.name})`
+                    value: `first(${col.name})`,
                   };
-                })
+                }),
               };
               break;
             }
@@ -349,8 +349,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       version: "1.0.0",
       author: {
         name: properties.authorName,
-        email: properties.authorEmail
-      }
+        email: properties.authorEmail,
+      },
     };
 
     const visual_json = {
@@ -361,21 +361,23 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       version: config.version,
       description: config.description,
       supportUrl: "",
-      gitHubUrl: ""
+      gitHubUrl: "",
     };
 
     const dataViewMappingsConditions: { [name: string]: any } = {};
 
     if (properties.enableDrillDown) {
       dataViewMappingsConditions.category = {
-        max: 1
+        max: 1,
       };
     }
 
     const objectProperties: { [name: string]: any } = {};
 
     // TODO: for now, we assume there's only one table
-    const columns = template.tables[0].columns.filter(col => !col.metadata.isRaw) as PowerBIColumn[];
+    const columns = template.tables[0].columns.filter(
+      (col) => !col.metadata.isRaw
+    ) as PowerBIColumn[];
 
     for (const column of columns) {
       // Refine column names
@@ -406,7 +408,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       if (!powerBIObjects[powerBIObjectName]) {
         powerBIObjects[powerBIObjectName] = {
           displayName: object.properties.name,
-          properties: {}
+          properties: {},
         };
       }
       property.powerBIName = (
@@ -420,7 +422,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         displayName: this.mapPropertyName(
           property.displayName.split("/").pop()
         ),
-        type
+        type,
       };
     }
 
@@ -430,20 +432,20 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           displayName: "Primary Key",
           name: "primarykey",
           kind: "GroupingOrMeasure",
-          description: "Primary Key/Row ID/Granularity (Level of Detail)"
+          description: "Primary Key/Row ID/Granularity (Level of Detail)",
         },
-        ...columns.map(column => {
+        ...columns.map((column) => {
           return {
             displayName: column.displayName,
             name: column.powerBIName,
-            kind: "GroupingOrMeasure"
+            kind: "GroupingOrMeasure",
           } as DataRole;
         }),
         {
           displayName: "Tooltips",
           name: "powerBITooltips",
-          kind: "GroupingOrMeasure"
-        }
+          kind: "GroupingOrMeasure",
+        },
       ],
       dataViewMappings: [
         {
@@ -452,44 +454,44 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             categories: {
               select: [
                 {
-                  bind: { to: "primarykey" }
+                  bind: { to: "primarykey" },
                 },
                 ...columns /*.filter(column => column.type !== Charticulator.Core.Dataset.DataType.Number)*/
-                  .map(column => {
+                  .map((column) => {
                     return {
-                      bind: { to: column.powerBIName }
+                      bind: { to: column.powerBIName },
                     };
                   }),
                 {
-                  bind: { to: "powerBITooltips" }
-                }
+                  bind: { to: "powerBITooltips" },
+                },
               ],
               dataReductionAlgorithm: {
                 top: {
-                  count: 30000 // That's the maximum
-                }
-              }
+                  count: 30000, // That's the maximum
+                },
+              },
             },
             values: {
               select: [
                 ...columns /** .filter(column => column.type === Charticulator.Core.Dataset.DataType.Number) */
-                  .map(column => {
+                  .map((column) => {
                     return {
-                      bind: { to: column.powerBIName }
+                      bind: { to: column.powerBIName },
                     };
                   }),
                 {
-                  bind: { to: "powerBITooltips" }
-                }
-              ]
-            }
-          }
-        }
+                  bind: { to: "powerBITooltips" },
+                },
+              ],
+            },
+          },
+        },
       ],
 
       /* Tell PBI to allow for sorting */
       sorting: {
-        default: {}
+        default: {},
       },
       objects: powerBIObjects,
       // Declare that the visual supports highlight.
@@ -498,17 +500,17 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       tooltips: {
         supportedTypes: {
           default: true,
-          canvas: true
-        }
+          canvas: true,
+        },
       },
       drilldown: {
-        roles: ["category"]
-      }
+        roles: ["category"],
+      },
     };
 
     if (properties.enableDrillDown) {
       capabilities.drilldown = {
-        roles: [...capabilities.dataRoles.map(column => column.name)]
+        roles: [...capabilities.dataRoles.map((column) => column.name)],
       };
     }
 
@@ -523,19 +525,19 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         dataViewMappingsConditions[column.powerBIName] = { max: 1 };
       }
 
-      links.forEach(link => {
+      links.forEach((link) => {
         const linksRole = {
           displayName: link.displayName,
           name: link.powerBIName,
-          kind: "GroupingOrMeasure"
+          kind: "GroupingOrMeasure",
         } as DataRole;
 
         capabilities.dataRoles.push(linksRole);
 
         capabilities.dataViewMappings[0].categorical.categories.select.push({
           for: {
-            in: link.powerBIName
-          }
+            in: link.powerBIName,
+          },
         });
       });
     }
@@ -547,11 +549,11 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
           name: "powerBITooltips",
           type: "string" as any,
           metadata: {
-            kind: "categorical" as any
-          }
-        }
+            kind: "categorical" as any,
+          },
+        },
       ],
-      name: "powerBITooltips"
+      name: "powerBITooltips",
     });
 
     const apiVersion = "2.1.0";
@@ -563,7 +565,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualVersion: config.version,
       apiVersion,
       templateData: template,
-      enableDrillDown: properties.enableDrillDown
+      enableDrillDown: properties.enableDrillDown,
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
@@ -577,7 +579,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       apiVersion,
       author: config.author,
       assets: {
-        icon: "assets/icon.png"
+        icon: "assets/icon.png",
       },
       externalJS: [] as string[],
       style: "style/visual.less",
@@ -587,8 +589,9 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         js: [resources.libraries, containerScript, visual].join("\n"),
         css: "",
         iconBase64:
-          (properties.visualIcon && properties.visualIcon.src) || resources.icon
-      }
+          (properties.visualIcon && properties.visualIcon.src) ||
+          resources.icon,
+      },
     };
 
     const package_json = {
@@ -598,15 +601,15 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         {
           resourceId: "rId0",
           sourceType: 5,
-          file: "resources/" + config.guid + ".pbiviz.json"
-        }
+          file: "resources/" + config.guid + ".pbiviz.json",
+        },
       ],
       visual: visual_json,
       metadata: {
         pbivizjson: {
-          resourceId: "rId0"
-        }
-      }
+          resourceId: "rId0",
+        },
+      },
     };
 
     const zip = new JSZip();
@@ -616,7 +619,7 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     return await zip.generateAsync({
       type: "base64",
-      compression: "DEFLATE"
+      compression: "DEFLATE",
     });
   }
 }
@@ -646,5 +649,5 @@ class PowerBIVisualBuilder {
 
 module.exports = {
   PowerBIVisualBuilder,
-  PowerBIVisualGenerator
+  PowerBIVisualGenerator,
 };
