@@ -20,8 +20,11 @@
 import * as JSZip from "jszip";
 
 import * as Charticulator from "Charticulator";
-import { ExportTemplateTarget } from "Charticulator/app/template";
-import { Specification } from "Charticulator/core";
+import {
+  ExportTemplateTarget,
+  ExportTemplateTargetProperty,
+} from "Charticulator/app/template";
+import { indexOf, Specification } from "Charticulator/core";
 
 import {
   SchemaCapabilities,
@@ -86,13 +89,19 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
   }
 
   public getProperties() {
+    const columnList: ExportTemplateTargetProperty[] = this.template.tables[0].columns.map(
+      (column) => {
+        return {
+          displayName: `Enable drill-down for ${column.displayName} column`,
+          name: `drillDown_${column.name.replace(/[^0-9a-zA-Z\_]/g, "_")}`,
+          type: "boolean",
+          default: false,
+        } as ExportTemplateTargetProperty;
+      }
+    );
+
     return [
-      {
-        displayName: "Enable drill-down",
-        name: "enableDrillDown",
-        type: "boolean",
-        default: false,
-      },
+      ...columnList,
       {
         displayName: "Enable highlight",
         name: "supportsHighlight",
@@ -366,24 +375,12 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
 
     const dataViewMappingsConditions: { [name: string]: any } = {};
 
-    if (properties.enableDrillDown) {
-      dataViewMappingsConditions.category = {
-        max: 1,
-      };
-    }
-
     const objectProperties: { [name: string]: any } = {};
 
     // TODO: for now, we assume there's only one table
     const columns = template.tables[0].columns.filter(
       (col) => !col.metadata.isRaw
     ) as PowerBIColumn[];
-
-    for (const column of columns) {
-      // Refine column names
-      column.powerBIName = column.name.replace(/[^0-9a-zA-Z\_]/g, "_");
-      dataViewMappingsConditions[column.powerBIName] = { max: 1 };
-    }
 
     // Populate properties
     const powerBIObjects: Objects = {};
@@ -426,21 +423,41 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       };
     }
 
+    for (const column of columns) {
+      // Refine column names
+      column.powerBIName = column.name.replace(/[^0-9a-zA-Z\_]/g, "_");
+    }
+
+    const drillDownColumns: string[] = Object.keys(properties)
+      .filter(
+        (key: string) =>
+          key.indexOf("drillDown_") > -1 && properties[key] === true
+      )
+      .map((key) => key.replace("drillDown_", ""));
+
+    const isDrillDownColumn = (name: string) =>
+      drillDownColumns.find((col) => col === name) != undefined;
+
     const capabilities: SchemaCapabilities = {
       dataRoles: [
         {
           displayName: "Primary Key",
           name: "primarykey",
-          kind: "GroupingOrMeasure",
+          kind: drillDownColumns.length > 0 ? "Grouping" : "GroupingOrMeasure",
           description: "Primary Key/Row ID/Granularity (Level of Detail)",
         },
-        ...columns.map((column) => {
-          return {
-            displayName: column.displayName,
-            name: column.powerBIName,
-            kind: "GroupingOrMeasure",
-          } as DataRole;
-        }),
+        ...columns
+          .map((column) => {
+            return {
+              displayName: column.displayName,
+              name: column.powerBIName,
+              kind: isDrillDownColumn(column.powerBIName)
+                ? "Grouping"
+                : "GroupingOrMeasure",
+            } as DataRole;
+          })
+          // )
+          .filter((col) => col),
         {
           displayName: "Tooltips",
           name: "powerBITooltips",
@@ -474,7 +491,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
             },
             values: {
               select: [
-                ...columns /** .filter(column => column.type === Charticulator.Core.Dataset.DataType.Number) */
+                ...columns
+                  .filter((column) => !isDrillDownColumn(column.powerBIName))
                   .map((column) => {
                     return {
                       bind: { to: column.powerBIName },
@@ -504,14 +522,20 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
         },
       },
       drilldown: {
-        roles: ["category"],
+        roles: drillDownColumns,
       },
     };
 
-    if (properties.enableDrillDown) {
-      capabilities.drilldown = {
-        roles: [...capabilities.dataRoles.map((column) => column.name)],
-      };
+    if (drillDownColumns.length > 0) {
+      for (const column of columns) {
+        if (isDrillDownColumn(column.powerBIName)) {
+          dataViewMappingsConditions[column.powerBIName] = { max: 1 };
+        }
+      }
+    } else {
+      for (const column of columns) {
+        dataViewMappingsConditions[column.powerBIName] = { max: 1 };
+      }
     }
 
     const linksTable = this.hasAnchoredLinksAndTable(template);
@@ -565,7 +589,8 @@ class PowerBIVisualGenerator implements ExportTemplateTarget {
       visualVersion: config.version,
       apiVersion,
       templateData: template,
-      enableDrillDown: properties.enableDrillDown,
+      enableDrillDown: drillDownColumns.length > 0,
+      drillDownColumns,
     };
     const visual = resources.visual.replace(
       /[\'\"]\<\%\= *([0-9a-zA-Z\_]+) *\%\>[\'\"]/g,
