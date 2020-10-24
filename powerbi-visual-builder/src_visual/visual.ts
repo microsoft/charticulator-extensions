@@ -74,6 +74,7 @@ namespace powerbi.extensibility.visual {
 
     protected template: CharticulatorContainer.Specification.Template.ChartTemplate;
     protected enableDrillDown: boolean;
+    protected drillDownColumns: string[];
 
     protected container: HTMLElement;
     protected divChart: HTMLDivElement;
@@ -92,6 +93,7 @@ namespace powerbi.extensibility.visual {
         this.selectionManager = options.host.createSelectionManager();
         this.template = "<%= templateData %>" as any;
         this.enableDrillDown = "<%= enableDrillDown %>" as any;
+        this.drillDownColumns = "<%= drillDownColumns %>" as any;
         this.container = options.element;
         this.divChart = document.createElement("div");
         this.divChart.style.cursor = "default";
@@ -242,8 +244,8 @@ namespace powerbi.extensibility.visual {
       );
     }
 
-    public getUserColumnName(options: VisualUpdateOptions, columnName: string) {
-      const column = options.dataViews[0].metadata.columns.find(
+    public getUserColumnName(dv: DataView, columnName: string) {
+      const column = dv.metadata.columns.find(
         (column) => column.roles[columnName]
       );
       return column && column.displayName;
@@ -251,7 +253,7 @@ namespace powerbi.extensibility.visual {
 
     /** Get a Charticulator dataset from the options */
     protected getDataset(
-      options: VisualUpdateOptions
+      dataView: DataView
     ): {
       dataset: CharticulatorContainer.Dataset.Dataset;
       rowInfo: Map<
@@ -260,16 +262,14 @@ namespace powerbi.extensibility.visual {
       >;
     } {
       if (
-        !options.dataViews ||
-        !options.dataViews[0] ||
-        !options.dataViews[0].categorical ||
-        !options.dataViews[0].categorical.categories ||
-        !options.dataViews[0].categorical.categories[0]
+        !dataView ||
+        !dataView.categorical ||
+        !dataView.categorical.categories ||
+        !dataView.categorical.categories[0]
       ) {
         return null;
       }
-      const dv = options.dataViews[0];
-      const categorical = dv.categorical;
+      const categorical = dataView.categorical;
       const categories = categorical.categories;
       const valueColumns = categorical.values;
 
@@ -307,7 +307,8 @@ namespace powerbi.extensibility.visual {
             }
           }
         }
-        for (const powerBIColumn of categories) {
+        for (const powerBIColumn of categories.reverse()) {
+          // reverse - to take the latest column (if drill down was enabled)
           if (
             powerBIColumn.source.roles[
               chartColumn.powerBIName || chartColumn.name
@@ -351,7 +352,7 @@ namespace powerbi.extensibility.visual {
       ) as PowerBIColumn[];
 
       const linksTable = this.getLinksTable(this.template);
-      const powerBILinkColumns = options.dataViews[0].categorical.categories;
+      const powerBILinkColumns = dataView.categorical.categories;
       let chartLinks =
         linksTable &&
         (linksTable.columns.filter(
@@ -504,7 +505,7 @@ namespace powerbi.extensibility.visual {
             columns: columns.map((column) => {
               return {
                 displayName: this.getUserColumnName(
-                  options,
+                  dataView,
                   column.powerBIName
                 ),
                 name: column.powerBIName,
@@ -522,7 +523,7 @@ namespace powerbi.extensibility.visual {
                   ? chartLinks.map((column) => {
                       return {
                         displayName: this.getUserColumnName(
-                          options,
+                          dataView,
                           column.powerBIName
                         ),
                         name: column.powerBIName,
@@ -643,9 +644,10 @@ namespace powerbi.extensibility.visual {
 
     protected updateRun(options: VisualUpdateOptions) {
       try {
+        const dataView = options.dataViews[0];
         this.resize(options.viewport.width, options.viewport.height);
 
-        const getDatasetResult = this.getDataset(options);
+        const getDatasetResult = this.getDataset(dataView);
 
         if (getDatasetResult == null) {
           // If dataset is null, show a warning message
