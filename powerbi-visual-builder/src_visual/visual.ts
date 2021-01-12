@@ -854,8 +854,10 @@ namespace powerbi.extensibility.visual {
             const powerBITooltips = dataset.tables.find(
               (table) => table.name === powerBITooltipsTablename
             );
-            const tooltipsTableColumns =
-              options.dataViews[0].categorical.categories;
+            const tooltipsTableColumns = [
+              ...options.dataViews[0].categorical.categories,
+              ...options.dataViews[0].categorical.values,
+            ];
             const visualHasTooltipData = tooltipsTableColumns.find(
               (column) => column.source.roles.powerBITooltips
             );
