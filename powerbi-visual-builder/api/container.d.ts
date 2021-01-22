@@ -18,6 +18,15 @@ declare namespace CharticulatorContainer {
     defaultAttributes: DefaultAttributes;
   }
 
+  interface FormatLocaleDefinition {
+    decimal: string;
+    thousands: string;
+    grouping: number[];
+    currency: [string, string];
+    numerals?: string[];
+    percent?: string;
+  }
+
   /** Represents a chart template */
   class ChartTemplate {
     /** Create a chart template */
@@ -95,6 +104,8 @@ declare namespace CharticulatorContainer {
     public setSelection(table: string, rowIndices: number[]): void;
     /** Clear data selection and update the chart */
     public clearSelection(): void;
+    /** Sets localization options */
+    public static setFormatOptions(options: FormatLocaleDefinition);
     /** Mount the chart to a container element */
     public mount(
       container: string | Element,
@@ -143,10 +154,7 @@ declare namespace CharticulatorContainer {
   }
 
   namespace Utils {
-    function applyDateFormat(
-      value: Date,
-      format: string
-    ): string;
+    function applyDateFormat(value: Date, format: string): string;
   }
 
   namespace Dataset {
@@ -167,7 +175,7 @@ declare namespace CharticulatorContainer {
       orderMode?: "alphabetically" | "occurrence" | "order";
       /** Formatting for other data types */
       format?: string;
-      /** Indicates raw column*/
+      /** Indicates raw column */
       isRaw?: boolean;
     }
     interface Column {
@@ -247,7 +255,7 @@ declare namespace CharticulatorContainer {
       | AttributeList
       | AttributeMap;
     /** Attribute value list */
-    interface AttributeList extends ArrayLike<AttributeValue> { }
+    interface AttributeList extends ArrayLike<AttributeValue> {}
     /** Attribute value map */
     interface AttributeMap {
       [name: string]: AttributeValue;
@@ -316,7 +324,7 @@ declare namespace CharticulatorContainer {
       mappings: Mappings;
     }
     /** Element: a single graphical mark, such as rect, circle, wedge; an element is driven by a single data row */
-    interface Element extends Object { }
+    interface Element extends Object {}
     /** Glyph: a compound of elements, with constraints between them; a glyph is driven by a single data row */
     interface Glyph extends Object {
       /** The data table this mark correspond to */
@@ -345,11 +353,11 @@ declare namespace CharticulatorContainer {
       order?: Types.SortBy;
     }
     /** Guide */
-    interface Guide extends Object { }
+    interface Guide extends Object {}
     /** Guide Coordinator */
-    interface GuideCoordinator extends Object { }
+    interface GuideCoordinator extends Object {}
     /** Links */
-    interface Links extends Object { }
+    interface Links extends Object {}
     /** ChartElement is a PlotSegment or a Guide */
     type ChartElement = PlotSegment | Guide | GuideCoordinator;
     /** Resource item */
@@ -379,9 +387,9 @@ declare namespace CharticulatorContainer {
       attributes: AttributeMap;
     }
     /** Element state */
-    interface MarkState extends ObjectState { }
+    interface MarkState extends ObjectState {}
     /** Scale state */
-    interface ScaleState extends ObjectState { }
+    interface ScaleState extends ObjectState {}
     /** Glyph state */
     interface GlyphState extends ObjectState {
       marks: MarkState[];
@@ -394,7 +402,7 @@ declare namespace CharticulatorContainer {
       dataRowIndices: number[][];
     }
     /** Guide state */
-    interface GuideState extends ObjectState { }
+    interface GuideState extends ObjectState {}
     /** Chart element state, one of PlotSegmentState or GuideState */
     type ChartElementState = PlotSegmentState | GuideState;
     /** Chart state */
@@ -416,9 +424,9 @@ declare namespace CharticulatorContainer {
       type PropertyField =
         | string
         | {
-          property: string;
-          field: any;
-        };
+            property: string;
+            field: any;
+          };
       interface ChartTemplate {
         /** The original chart specification */
         specification: Chart;
