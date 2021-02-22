@@ -551,7 +551,11 @@ namespace powerbi.extensibility.visual {
                       obj[column.powerBIName || column.name] = value;
                     }
                   }
-                  return obj;
+                  if (obj.source_id && obj.target_id) {
+                    return obj;
+                  } else {
+                    return null;
+                  }
                 })
                 .filter(row => row)
             },
