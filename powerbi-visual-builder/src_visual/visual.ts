@@ -551,9 +551,13 @@ namespace powerbi.extensibility.visual {
                       obj[column.powerBIName || column.name] = value;
                     }
                   }
-                  return obj;
+                  if (obj.source_id && obj.target_id) {
+                    return obj;
+                  } else {
+                    return null;
+                  }
                 })
-                .filter(row => row)
+                .filter((row) => row),
             },
           tooltips &&
             tooltipsTableColumns && {
@@ -562,7 +566,7 @@ namespace powerbi.extensibility.visual {
               rows: categories[0].values
                 .map((source, index) => {
                   const obj = {
-                    _id: index.toString()
+                    _id: index.toString(),
                   };
                   for (const column of tooltips) {
                     const valueColumn =
