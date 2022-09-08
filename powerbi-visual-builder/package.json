@@ -35,7 +35,7 @@
     "babel-preset-es2015-ie": "^6.7.0",
     "fs-extra": "^7.0.0",
     "json-schema-to-typescript": "^5.5.0",
-    "jszip": "^3.1.5",
+    "jszip": "^3.7.0",
     "lscg-solver": "^1.0.1",
     "multirun": "^3.0.2",
     "typescript": "3.9.7",
